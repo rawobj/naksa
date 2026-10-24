@@ -1,1 +1,154 @@
 @import "tailwindcss";
+
+:root {
+  --navy: #1d2a44;
+  --navy-deep: #131d31;
+  --navy-raised: #2a3a5c;
+  --on-navy: #f4efe4;
+  --on-navy-muted: #b4bccb;
+  --brass: #c9a25a;
+  --brass-bright: #d8b471;
+  --on-brass: #1b2233;
+
+  --paper: #fdfcf9;
+  --stage: #e9e4da;
+  --tile: #f3eee3;
+  --tile-hover: #ebe4d5;
+  --line: #e0d9cb;
+  --line-strong: #cfc6b4;
+  --ink: #1b2233;
+  --muted: #5d6370;
+  --select: #1f6feb;
+  --danger: #b3261e;
+  --ok: #2f6f4f;
+
+  --radius: 10px;
+  --radius-small: 7px;
+  --shadow-raised: 0 6px 24px rgba(27, 34, 51, 0.14);
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --bar: 56px;
+  --rail: 76px;
+  --toolbox: 236px;
+  --side: 292px;
+  --status: 34px;
+}
+
+/* The palette as Tailwind utilities: bg-navy, text-muted, rounded-small, ease-naksa... */
+@theme inline {
+  --color-navy: var(--navy);
+  --color-navy-deep: var(--navy-deep);
+  --color-navy-raised: var(--navy-raised);
+  --color-on-navy: var(--on-navy);
+  --color-on-navy-muted: var(--on-navy-muted);
+  --color-brass: var(--brass);
+  --color-brass-bright: var(--brass-bright);
+  --color-on-brass: var(--on-brass);
+  --color-paper: var(--paper);
+  --color-stage: var(--stage);
+  --color-tile: var(--tile);
+  --color-tile-hover: var(--tile-hover);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-select: var(--select);
+  --color-danger: var(--danger);
+  --color-ok: var(--ok);
+
+  --radius-big: var(--radius);
+  --radius-small: var(--radius-small);
+  --shadow-raised: var(--shadow-raised);
+  --ease-naksa: var(--ease);
+
+  --animate-settle: settle 0.4s var(--ease);
+  --animate-rise: rise 0.28s var(--ease);
+
+  @keyframes settle {
+    from {
+      opacity: 0;
+      translate: -50% -51%;
+    }
+  }
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(10px) scale(0.985);
+    }
+  }
+}
+
+@layer base {
+  html,
+  body {
+    height: 100%;
+    margin: 0;
+  }
+
+  body {
+    font-family: var(--font-sans), system-ui, sans-serif;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--ink);
+    background: var(--stage);
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  ::selection {
+    background: var(--brass);
+    color: var(--on-brass);
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+    color: inherit;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--select);
+    outline-offset: 2px;
+  }
+
+  /* Tailwind's reset makes svgs block, the icons were inline before */
+  svg {
+    display: inline;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
