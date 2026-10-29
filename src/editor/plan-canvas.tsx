@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useStore } from "jotai";
 import type { Vec } from "@/core/geometry";
 import { drawPlan, type DrawOptions } from "./render/draw";
+import { sceneFor } from "./render/scene";
 import {
   cursorAtom,
   fitRequestAtom,
@@ -11,7 +12,7 @@ import {
   toolAtom,
   viewportAtom,
 } from "./editor-atoms";
-import { toWorld, zoomAt } from "./viewport";
+import { fitBounds, toWorld, zoomAt } from "./viewport";
 
 // The drawing surface. Draws the plan, and handles panning and zooming.
 export default function PlanCanvas() {
@@ -45,7 +46,7 @@ export default function PlanCanvas() {
     const draw = () => {
       frame = 0;
       if (width === 0 || height === 0) return;
-      drawPlan(ctx, options());
+      drawPlan(ctx, sceneFor(store.get(planAtom)), options());
       canvas.style.cursor = pan
         ? "grabbing"
         : spaceHeld || store.get(toolAtom) === "pan"
@@ -57,13 +58,31 @@ export default function PlanCanvas() {
       if (!frame) frame = requestAnimationFrame(draw);
     };
 
-    // Starting view: a typical house plot in the middle of the canvas
+    // Zoom to fit the plan
     const fit = () => {
-      store.set(viewportAtom, {
-        x: width / 2 - 5500 * 0.06,
-        y: height / 2 - 4500 * 0.06,
-        zoom: 0.06,
-      });
+      const bounds = sceneFor(store.get(planAtom)).bounds;
+      if (!bounds || width === 0) {
+        store.set(viewportAtom, {
+          x: width / 2 - 5500 * 0.06,
+          y: height / 2 - 4500 * 0.06,
+          zoom: 0.06,
+        });
+        return;
+      }
+      store.set(
+        viewportAtom,
+        fitBounds(
+          {
+            minX: bounds.minX - 600,
+            minY: bounds.minY - 600,
+            maxX: bounds.maxX + 600,
+            maxY: bounds.maxY + 600,
+          },
+          width,
+          height,
+          28
+        )
+      );
     };
 
     // Canvas pixels have to match the screen pixels (devicePixelRatio) or it looks blurry
