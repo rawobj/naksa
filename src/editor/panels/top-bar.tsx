@@ -1,15 +1,36 @@
 "use client";
 
+import { produce } from "immer";
 import { useAtomValue, useSetAtom } from "jotai";
-import { planAtom, planNameAtom } from "../editor-atoms";
+import { Icon } from "../icons";
+import {
+  canRedoAtom,
+  canUndoAtom,
+  commitAtom,
+  planNameAtom,
+  redoAtom,
+  undoAtom,
+} from "../editor-atoms";
 
-// Top bar: app name and plan name
+// Undo and redo
+const iconButton =
+  "grid size-[34px] place-items-center rounded-small text-on-navy transition-[background] duration-150 ease-naksa enabled:hover:bg-navy-raised disabled:text-[#7f8aa2]";
+
+// Top bar: plan name, undo and redo
 export default function TopBar() {
   const name = useAtomValue(planNameAtom);
-  const setPlan = useSetAtom(planAtom);
+  const canUndo = useAtomValue(canUndoAtom);
+  const canRedo = useAtomValue(canRedoAtom);
+  const commit = useSetAtom(commitAtom);
+  const undo = useSetAtom(undoAtom);
+  const redo = useSetAtom(redoAtom);
 
   const rename = (value: string) =>
-    setPlan((plan) => ({ ...plan, name: value }));
+    commit((plan) =>
+      produce(plan, (draft) => {
+        draft.name = value;
+      })
+    );
 
   return (
     <header className="flex min-w-0 items-center gap-3.5 bg-navy pr-3.5 pl-5 text-on-navy [grid-area:bar] max-[860px]:gap-2 max-[860px]:pr-2 max-[860px]:pl-3 [&_:focus-visible]:outline-brass-bright">
@@ -21,11 +42,32 @@ export default function TopBar() {
         value={name}
         aria-label="Plan name"
         spellCheck={false}
+        // Every keystroke is its own undo step
         onChange={(e) => rename(e.target.value)}
         onBlur={(e) => {
           if (!e.target.value.trim()) rename("Untitled plan");
         }}
       />
+      <div className="flex gap-0.5 max-[560px]:hidden">
+        <button
+          className={iconButton}
+          onClick={() => undo()}
+          disabled={!canUndo}
+          title="Undo (Ctrl+Z)"
+          aria-label="Undo"
+        >
+          <Icon name="undo" />
+        </button>
+        <button
+          className={iconButton}
+          onClick={() => redo()}
+          disabled={!canRedo}
+          title="Redo (Ctrl+Shift+Z)"
+          aria-label="Redo"
+        >
+          <Icon name="redo" />
+        </button>
+      </div>
     </header>
   );
 }

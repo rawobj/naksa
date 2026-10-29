@@ -6,7 +6,13 @@ import StatusBar from "./panels/status-bar";
 import ToolRail, { TOOLS } from "./panels/tool-rail";
 import TopBar from "./panels/top-bar";
 import PlanCanvas, { isTyping } from "./plan-canvas";
-import { fitRequestAtom, toolAtom, viewportAtom } from "./editor-atoms";
+import {
+  fitRequestAtom,
+  redoAtom,
+  toolAtom,
+  undoAtom,
+  viewportAtom,
+} from "./editor-atoms";
 import { zoomAt } from "./viewport";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +38,14 @@ export default function Editor() {
 
       // Shortcuts are ignored while typing in a field
       if (isTyping(e.target)) return;
+      if (mod && key === "z") {
+        e.preventDefault();
+        return store.set(e.shiftKey ? redoAtom : undoAtom);
+      }
+      if (mod && key === "y") {
+        e.preventDefault();
+        return store.set(redoAtom);
+      }
       if (mod || e.altKey) return;
 
       if (e.key === "Escape") return store.set(toolAtom, "select");
