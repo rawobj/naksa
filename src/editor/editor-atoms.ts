@@ -1,7 +1,7 @@
 import { atom } from "jotai";
 import { emptyPlan, type Id, type Plan } from "@/core/model";
 
-export type ToolId = "select" | "pan";
+export type ToolId = "select" | "pan" | "wall";
 export type EntityType = "wall";
 
 export type Selection = {
@@ -23,14 +23,21 @@ export const planAtom = atom<Plan>(emptyPlan());
 
 export const toolAtom = atom<ToolId>("select");
 
+export const wallThicknessAtom = atom(230); // thickness given to newly drawn walls
+
 export const selectionAtom = atom<Selection | null>(null);
 
 export const viewportAtom = atom<Viewport>({ x: 0, y: 0, zoom: 0.05 });
+
+export const snappingAtom = atom(true);
 
 // Cursor position on the plan in millimetres, when it is over the canvas
 export const cursorAtom = atom<{ x: number; y: number } | null>(null);
 
 export const fitRequestAtom = atom(0); // incremented to ask the canvas to zoom to fit the plan
+
+// Incremented when a tool's own state changed and the canvas has to redraw
+export const redrawAtom = atom(0);
 
 // Derived values, components using these only re-render when the value itself changes
 export const planNameAtom = atom((get) => get(planAtom).name);

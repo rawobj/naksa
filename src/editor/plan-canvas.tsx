@@ -9,13 +9,22 @@ import {
   cursorAtom,
   fitRequestAtom,
   planAtom,
+  redrawAtom,
+  snappingAtom,
   toolAtom,
   viewportAtom,
+  wallThicknessAtom,
 } from "./editor-atoms";
+import type { Pointer, Tool, ToolHost } from "./tools";
 import { fitBounds, toWorld, zoomAt } from "./viewport";
 
-// The drawing surface. Draws the plan, and handles panning and zooming.
-export default function PlanCanvas() {
+type PlanCanvasProps = {
+  tools: Record<string, Tool>;
+  host: ToolHost;
+};
+
+// The drawing surface. Draws the plan and sends mouse input to the active tool.
+export default function PlanCanvas({ tools, host }: PlanCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const store = useStore();
 
@@ -43,15 +52,20 @@ export default function PlanCanvas() {
       };
     };
 
+    // Draw order: plan, then whatever the active tool wants on top
     const draw = () => {
       frame = 0;
       if (width === 0 || height === 0) return;
-      drawPlan(ctx, sceneFor(store.get(planAtom)), options());
+      const tool = store.get(toolAtom);
+      const o = options();
+      drawPlan(ctx, sceneFor(store.get(planAtom)), o);
+      ctx.setTransform(o.dpr, 0, 0, o.dpr, 0, 0);
+      tools[tool]?.overlay?.(ctx, o, host);
       canvas.style.cursor = pan
         ? "grabbing"
-        : spaceHeld || store.get(toolAtom) === "pan"
+        : spaceHeld
           ? "grab"
-          : "default";
+          : (tools[tool]?.cursor ?? "default");
     };
     // At most one redraw per frame, however many changes come in
     const schedule = () => {
@@ -104,17 +118,29 @@ export default function PlanCanvas() {
 
     // Redraw when anything that is drawn changes, and refit when asked to
     const unsubscribe = [
-      ...[planAtom, toolAtom, viewportAtom].map((watched) =>
-        store.sub(watched, schedule)
-      ),
+      ...[
+        planAtom,
+        toolAtom,
+        wallThicknessAtom,
+        viewportAtom,
+        snappingAtom,
+        cursorAtom,
+        redrawAtom,
+      ].map((watched) => store.sub(watched, schedule)),
       store.sub(fitRequestAtom, fit),
     ];
 
-    const pointer = (e: PointerEvent) => {
+    const pointer = (e: PointerEvent | MouseEvent): Pointer => {
       const rect = canvas.getBoundingClientRect();
       const screen = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-      return { screen, world: toWorld(store.get(viewportAtom), screen) };
+      return {
+        screen,
+        world: toWorld(store.get(viewportAtom), screen),
+        shift: e.shiftKey,
+        alt: e.altKey,
+      };
     };
+    const active = () => tools[store.get(toolAtom)];
 
     // Mouse events
     const onDown = (e: PointerEvent) => {
@@ -132,7 +158,12 @@ export default function PlanCanvas() {
         canvas.setPointerCapture(e.pointerId);
         e.preventDefault();
         schedule();
+        return;
       }
+      if (e.button !== 0) return;
+      canvas.setPointerCapture(e.pointerId);
+      active()?.down?.(p, host);
+      schedule();
     };
     const onMove = (e: PointerEvent) => {
       const p = pointer(e);
@@ -145,6 +176,7 @@ export default function PlanCanvas() {
         });
         return;
       }
+      active()?.move?.(p, host);
       // A new object every move, so the canvas redraws even if the rounded position is the same
       store.set(cursorAtom, {
         x: Math.round(p.world.x),
@@ -157,10 +189,17 @@ export default function PlanCanvas() {
       if (pan) {
         pan = null;
         schedule();
+        return;
       }
+      active()?.up?.(pointer(e), host);
+      schedule();
     };
     const onLeave = () => {
       store.set(cursorAtom, null);
+    };
+    const onDouble = (e: MouseEvent) => {
+      active()?.doubleClick?.(pointer(e), host);
+      schedule();
     };
     // Scroll to zoom around the cursor
     const onWheel = (e: WheelEvent) => {
@@ -194,6 +233,7 @@ export default function PlanCanvas() {
     canvas.addEventListener("pointerup", onUp);
     canvas.addEventListener("pointercancel", onUp);
     canvas.addEventListener("pointerleave", onLeave);
+    canvas.addEventListener("dblclick", onDouble);
     canvas.addEventListener("wheel", onWheel, { passive: false });
     canvas.addEventListener("contextmenu", onContext);
     window.addEventListener("keydown", onKeyDown);
@@ -210,19 +250,20 @@ export default function PlanCanvas() {
       canvas.removeEventListener("pointerup", onUp);
       canvas.removeEventListener("pointercancel", onUp);
       canvas.removeEventListener("pointerleave", onLeave);
+      canvas.removeEventListener("dblclick", onDouble);
       canvas.removeEventListener("wheel", onWheel);
       canvas.removeEventListener("contextmenu", onContext);
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [store]);
+  }, [store, tools, host]);
 
   return (
     <canvas
       ref={canvasRef}
       className="block size-full touch-none bg-paper focus-visible:outline-offset-[-2px]"
       tabIndex={0}
-      aria-label="Floor plan drawing"
+      aria-label="Floor plan drawing. Use the tools on the left to draw."
     />
   );
 }

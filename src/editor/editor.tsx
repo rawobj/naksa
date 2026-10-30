@@ -1,18 +1,23 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useStore } from "jotai";
 import StatusBar from "./panels/status-bar";
 import ToolRail, { TOOLS } from "./panels/tool-rail";
 import TopBar from "./panels/top-bar";
 import PlanCanvas, { isTyping } from "./plan-canvas";
+import { snapPoint } from "./snap";
 import {
   fitRequestAtom,
+  planAtom,
   redoAtom,
+  redrawAtom,
+  snappingAtom,
   toolAtom,
   undoAtom,
   viewportAtom,
 } from "./editor-atoms";
+import { createTools, type ToolHost } from "./tools";
 import { zoomAt } from "./viewport";
 import { cn } from "@/lib/utils";
 
@@ -26,9 +31,28 @@ const layout = cn(
 );
 
 export default function Editor() {
-  // The jotai store from <Providers>, the canvas uses it outside of React
+  // The jotai store from <Providers>, the tools and the canvas use it outside of React
   const store = useStore();
+  const tools = useMemo(() => createTools(), []);
   const stageRef = useRef<HTMLDivElement>(null);
+
+  // What the tools can use from the canvas (snapping at the current zoom, px to mm)
+  const host = useMemo<ToolHost>(
+    () => ({
+      store,
+      snap: (world, options) => {
+        return snapPoint(world, {
+          walls: store.get(planAtom).walls,
+          radius: 12 / store.get(viewportAtom).zoom, // 12px on screen, whatever the zoom
+          grid: 50,
+          enabled: store.get(snappingAtom),
+          ...options,
+        });
+      },
+      toWorld: (pixels) => pixels / store.get(viewportAtom).zoom,
+    }),
+    [store]
+  );
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -48,7 +72,18 @@ export default function Editor() {
       }
       if (mod || e.altKey) return;
 
-      if (e.key === "Escape") return store.set(toolAtom, "select");
+      // The active tool gets the key first (the wall tool uses numbers for typed lengths)
+      const active = tools[store.get(toolAtom)];
+      if (active.key?.(e, host)) {
+        e.preventDefault();
+        store.set(redrawAtom, (n) => n + 1);
+        return;
+      }
+      if (e.key === "Escape") {
+        if (!active.cancel?.(host)) store.set(toolAtom, "select");
+        else store.set(redrawAtom, (n) => n + 1);
+        return;
+      }
 
       // Zoom around the middle of the canvas
       const centre = () => {
@@ -62,13 +97,13 @@ export default function Editor() {
       if (e.key === "-")
         return store.set(viewportAtom, zoomAt(viewport, centre(), 0.8));
 
-      // Tool letters (V, H)
+      // Tool letters (V, H, W)
       const picked = TOOLS.find((t) => t.key.toLowerCase() === key);
       if (picked) store.set(toolAtom, picked.id);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [store]);
+  }, [store, tools, host]);
 
   // Middle of the canvas for the zoom buttons, 34 is the status bar height
   const centre = useCallback(() => {
@@ -87,7 +122,7 @@ export default function Editor() {
         ref={stageRef}
       >
         <div className="relative flex min-h-0 flex-1">
-          <PlanCanvas />
+          <PlanCanvas tools={tools} host={host} />
         </div>
         <StatusBar centre={centre} />
       </main>
