@@ -1,5 +1,7 @@
 import { produce } from "immer";
+import { add, almostEqual, type Vec } from "./geometry";
 import type { Id, Plan } from "./model";
+import { JOIN_TOLERANCE } from "./walls";
 
 // Every edit here takes a plan and returns a new one, it never changes the old plan.
 // Immer's produce lets us write the change as if we were mutating, and it copies only what changed.
@@ -39,4 +41,23 @@ export function removeFrom(plan: Plan, key: ListKey, id: Id): Plan {
     const at = list.findIndex((e) => e.id === id);
     if (at >= 0) list.splice(at, 1);
   });
+}
+
+// Moves every wall end sitting at "from" to "to", so joined corners stay joined
+export function moveCorner(plan: Plan, from: Vec, to: Vec): Plan {
+  return produce(plan, (draft) => {
+    for (const wall of draft.walls) {
+      if (almostEqual(wall.a, from, JOIN_TOLERANCE)) wall.a = to;
+      if (almostEqual(wall.b, from, JOIN_TOLERANCE)) wall.b = to;
+    }
+  });
+}
+
+// Slides a wall sideways, dragging the corners it shares along with it
+export function translateWall(plan: Plan, id: Id, delta: Vec): Plan {
+  const wall = plan.walls.find((w) => w.id === id);
+  if (!wall) return plan;
+  const a = add(wall.a, delta);
+  const b = add(wall.b, delta);
+  return moveCorner(moveCorner(plan, wall.a, a), wall.b, b);
 }

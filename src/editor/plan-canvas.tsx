@@ -3,6 +3,8 @@
 import { useEffect, useRef } from "react";
 import { useStore } from "jotai";
 import type { Vec } from "@/core/geometry";
+import { hitTest, wallBox } from "./hit";
+import { outline } from "./overlay";
 import { drawPlan, type DrawOptions } from "./render/draw";
 import { sceneFor } from "./render/scene";
 import {
@@ -10,10 +12,12 @@ import {
   fitRequestAtom,
   planAtom,
   redrawAtom,
+  selectionAtom,
   snappingAtom,
   toolAtom,
   viewportAtom,
   wallThicknessAtom,
+  type Selection,
 } from "./editor-atoms";
 import type { Pointer, Tool, ToolHost } from "./tools";
 import { fitBounds, toWorld, zoomAt } from "./viewport";
@@ -38,6 +42,7 @@ export default function PlanCanvas({ tools, host }: PlanCanvasProps) {
     let height = 0;
     let frame = 0;
     let fitted = false;
+    let hover: Selection | null = null;
     let pan: { start: Vec; x: number; y: number } | null = null;
     let spaceHeld = false;
 
@@ -52,14 +57,28 @@ export default function PlanCanvas({ tools, host }: PlanCanvasProps) {
       };
     };
 
-    // Draw order: plan, then whatever the active tool wants on top
+    // Outline for the hovered (faint) or selected (strong) thing
+    const highlight = (o: DrawOptions, target: Selection, strong: boolean) => {
+      const plan = store.get(planAtom);
+      ctx.save();
+      if (!strong) ctx.globalAlpha = 0.55;
+      const wall = plan.walls.find((w) => w.id === target.id);
+      if (wall) outline(ctx, o, wallBox(wall, 0));
+      ctx.restore();
+    };
+
+    // Draw order: plan, hover, selection, then whatever the active tool wants on top
     const draw = () => {
       frame = 0;
       if (width === 0 || height === 0) return;
       const tool = store.get(toolAtom);
+      const selection = store.get(selectionAtom);
       const o = options();
       drawPlan(ctx, sceneFor(store.get(planAtom)), o);
       ctx.setTransform(o.dpr, 0, 0, o.dpr, 0, 0);
+      if (hover && tool === "select" && !sameTarget(hover, selection))
+        highlight(o, hover, false);
+      if (selection) highlight(o, selection, true);
       tools[tool]?.overlay?.(ctx, o, host);
       canvas.style.cursor = pan
         ? "grabbing"
@@ -122,6 +141,7 @@ export default function PlanCanvas({ tools, host }: PlanCanvasProps) {
         planAtom,
         toolAtom,
         wallThicknessAtom,
+        selectionAtom,
         viewportAtom,
         snappingAtom,
         cursorAtom,
@@ -177,6 +197,10 @@ export default function PlanCanvas({ tools, host }: PlanCanvasProps) {
         return;
       }
       active()?.move?.(p, host);
+      hover =
+        store.get(toolAtom) === "select" && e.buttons === 0
+          ? hitTest(sceneFor(store.get(planAtom)), p.world, host.toWorld(5))
+          : null;
       // A new object every move, so the canvas redraws even if the rounded position is the same
       store.set(cursorAtom, {
         x: Math.round(p.world.x),
@@ -195,6 +219,7 @@ export default function PlanCanvas({ tools, host }: PlanCanvasProps) {
       schedule();
     };
     const onLeave = () => {
+      hover = null;
       store.set(cursorAtom, null);
     };
     const onDouble = (e: MouseEvent) => {
@@ -267,6 +292,9 @@ export default function PlanCanvas({ tools, host }: PlanCanvasProps) {
     />
   );
 }
+
+const sameTarget = (a: Selection | null, b: Selection | null) =>
+  !!a && !!b && a.type === b.type && a.id === b.id;
 
 export function isTyping(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
