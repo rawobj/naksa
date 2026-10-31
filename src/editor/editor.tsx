@@ -124,7 +124,7 @@ export default function Editor() {
         <div className="relative flex min-h-0 flex-1">
           <PlanCanvas tools={tools} host={host} />
         </div>
-        <StatusBar centre={centre} />
+        <StatusBar tools={tools} centre={centre} />
       </main>
     </div>
   );
