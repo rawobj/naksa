@@ -1,7 +1,7 @@
 import { produce } from "immer";
-import { add, almostEqual, type Vec } from "./geometry";
+import { add, almostEqual, sub, type Vec } from "./geometry";
 import type { Id, Plan } from "./model";
-import { JOIN_TOLERANCE } from "./walls";
+import { JOIN_TOLERANCE, wallLength } from "./walls";
 
 // Every edit here takes a plan and returns a new one, it never changes the old plan.
 // Immer's produce lets us write the change as if we were mutating, and it copies only what changed.
@@ -60,4 +60,18 @@ export function translateWall(plan: Plan, id: Id, delta: Vec): Plan {
   const a = add(wall.a, delta);
   const b = add(wall.b, delta);
   return moveCorner(moveCorner(plan, wall.a, a), wall.b, b);
+}
+
+// Sets a wall's length by moving its b end along the wall
+export function setWallLength(plan: Plan, id: Id, length: number): Plan {
+  const wall = plan.walls.find((w) => w.id === id);
+  if (!wall || length < 100) return plan;
+  const current = wallLength(wall);
+  if (current < 1) return plan;
+  const d = sub(wall.b, wall.a);
+  const b = {
+    x: Math.round(wall.a.x + (d.x / current) * length),
+    y: Math.round(wall.a.y + (d.y / current) * length),
+  };
+  return moveCorner(plan, wall.b, b);
 }
