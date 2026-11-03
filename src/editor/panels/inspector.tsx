@@ -13,6 +13,10 @@ import {
 } from "../editor-atoms";
 import { NumberField, panel } from "./field";
 
+// Grey buttons in a row under the fields
+const rowButton =
+  "flex h-9 flex-1 items-center justify-center gap-[7px] rounded-small bg-tile px-2.5 font-semibold text-navy transition-[background] duration-150 ease-naksa hover:bg-tile-hover";
+
 // Properties of whatever is selected, or a summary of the plan when nothing is
 export default function Inspector() {
   const plan = useAtomValue(planAtom);
@@ -71,6 +75,81 @@ export default function Inspector() {
             Drag either end on the plan to reshape it. Joined walls follow.
           </p>
           {removeButton("wall")}
+        </div>
+      );
+    }
+  }
+
+  // Door or window selected
+  if (selection?.type === "opening") {
+    const opening = plan.openings.find((o) => o.id === selection.id);
+    const wall = opening && plan.walls.find((w) => w.id === opening.wallId);
+    if (opening && wall) {
+      const len = wallLength(wall);
+      const set = (patch: Partial<typeof opening>) =>
+        commit((p) => updateIn(p, "openings", opening.id, patch));
+      const door = opening.kind === "door";
+      return (
+        <div className={panel.body}>
+          <h2 className={panel.title}>{door ? "Door" : "Window"}</h2>
+          <NumberField
+            label="Width"
+            value={opening.width}
+            min={300}
+            max={Math.max(300, len - 200)}
+            onCommit={(v) =>
+              set({
+                width: v,
+                offset: Math.min(Math.max(opening.offset, v / 2), len - v / 2),
+              })
+            }
+          />
+          <NumberField
+            label="Height"
+            value={opening.height}
+            min={300}
+            max={wall.height}
+            onCommit={(v) => set({ height: v })}
+          />
+          {!door && (
+            <NumberField
+              label="Sill height"
+              value={opening.sill}
+              min={0}
+              max={wall.height - 300}
+              onCommit={(v) => set({ sill: v })}
+            />
+          )}
+          <NumberField
+            label="From wall start"
+            value={opening.offset - opening.width / 2}
+            min={0}
+            max={Math.max(0, len - opening.width)}
+            onCommit={(v) => set({ offset: v + opening.width / 2 })}
+          />
+          {door && (
+            <div className="mt-3.5 flex gap-2">
+              <button
+                className={rowButton}
+                onClick={() =>
+                  set({ hinge: opening.hinge === "start" ? "end" : "start" })
+                }
+              >
+                <Icon name="flip" size={17} />
+                Flip hinge
+              </button>
+              <button
+                className={rowButton}
+                onClick={() =>
+                  set({ swing: opening.swing === "left" ? "right" : "left" })
+                }
+              >
+                <Icon name="rotate" size={17} />
+                Flip swing
+              </button>
+            </div>
+          )}
+          {removeButton(door ? "door" : "window")}
         </div>
       );
     }
