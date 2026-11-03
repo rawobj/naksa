@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useStore } from "jotai";
-import { removeFrom } from "@/core/edit";
+import { removeFrom, updateIn } from "@/core/edit";
 import SidePanel from "./panels/side-panel";
 import StatusBar from "./panels/status-bar";
 import ToolRail, { TOOLS } from "./panels/tool-rail";
@@ -66,6 +66,7 @@ export default function Editor() {
   // Keyboard shortcuts
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const plan = store.get(planAtom);
       const mod = e.ctrlKey || e.metaKey;
       const key = e.key.toLowerCase();
 
@@ -94,13 +95,23 @@ export default function Editor() {
         return;
       }
 
-      // Delete the selection
+      // Selection shortcuts: delete, flip door (F)
       const sel = store.get(selectionAtom);
       if ((e.key === "Delete" || e.key === "Backspace") && sel) {
         e.preventDefault();
         store.set(commitAtom, (p) => removeFrom(p, LISTS[sel.type], sel.id));
         store.set(selectionAtom, null);
         return;
+      }
+      if (sel?.type === "opening" && key === "f") {
+        const o = plan.openings.find((x) => x.id === sel.id);
+        if (o?.kind === "door") {
+          return store.set(commitAtom, (p) =>
+            updateIn(p, "openings", o.id, {
+              swing: o.swing === "left" ? "right" : "left",
+            })
+          );
+        }
       }
 
       // Zoom around the middle of the canvas
@@ -115,7 +126,7 @@ export default function Editor() {
       if (e.key === "-")
         return store.set(viewportAtom, zoomAt(viewport, centre(), 0.8));
 
-      // Tool letters (V, H, W)
+      // Tool letters (V, H, W, D, N)
       const picked = TOOLS.find((t) => t.key.toLowerCase() === key);
       if (picked) store.set(toolAtom, picked.id);
     };

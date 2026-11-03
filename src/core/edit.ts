@@ -40,17 +40,22 @@ export function removeFrom(plan: Plan, key: ListKey, id: Id): Plan {
     const list = draft[key] as Entry[];
     const at = list.findIndex((e) => e.id === id);
     if (at >= 0) list.splice(at, 1);
+
+    // Doors and windows cannot outlive the wall they sit in
+    if (key === "walls")
+      draft.openings = draft.openings.filter((o) => o.wallId !== id);
   });
 }
 
 // Moves every wall end sitting at "from" to "to", so joined corners stay joined
 export function moveCorner(plan: Plan, from: Vec, to: Vec): Plan {
-  return produce(plan, (draft) => {
+  const moved = produce(plan, (draft) => {
     for (const wall of draft.walls) {
       if (almostEqual(wall.a, from, JOIN_TOLERANCE)) wall.a = to;
       if (almostEqual(wall.b, from, JOIN_TOLERANCE)) wall.b = to;
     }
   });
+  return moved === plan ? plan : clampOpenings(moved);
 }
 
 // Slides a wall sideways, dragging the corners it shares along with it
@@ -74,4 +79,26 @@ export function setWallLength(plan: Plan, id: Id, length: number): Plan {
     y: Math.round(wall.a.y + (d.y / current) * length),
   };
   return moveCorner(plan, wall.b, b);
+}
+
+// Keeps every opening inside the wall it belongs to after the wall changes
+export function clampOpenings(plan: Plan): Plan {
+  const walls = new Map(plan.walls.map((w) => [w.id, w] as const));
+  return produce(plan, (draft) => {
+    // Openings whose wall is gone are dropped
+    if (draft.openings.some((o) => !walls.has(o.wallId)))
+      draft.openings = draft.openings.filter((o) => walls.has(o.wallId));
+
+    for (const o of draft.openings) {
+      const len = wallLength(walls.get(o.wallId)!);
+      const width = Math.min(o.width, Math.max(300, len - 100));
+      const offset = Math.min(
+        Math.max(o.offset, width / 2),
+        Math.max(width / 2, len - width / 2)
+      );
+      // Only write when it differs, so an untouched opening stays the same object
+      if (width !== o.width) o.width = width;
+      if (offset !== o.offset) o.offset = offset;
+    }
+  });
 }

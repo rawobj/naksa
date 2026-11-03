@@ -26,6 +26,20 @@ export const TOOLS: {
     title: "Drag the plan around",
   },
   { id: "wall", label: "Wall", icon: "wall", key: "W", title: "Draw walls" },
+  {
+    id: "door",
+    label: "Door",
+    icon: "door",
+    key: "D",
+    title: "Place a door on a wall",
+  },
+  {
+    id: "window",
+    label: "Window",
+    icon: "window",
+    key: "N",
+    title: "Place a window on a wall",
+  },
 ];
 
 // Left rail of drawing tools

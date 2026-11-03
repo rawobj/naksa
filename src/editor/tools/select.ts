@@ -7,16 +7,18 @@ import {
   selectionAtom,
 } from "../editor-atoms";
 import { distance, roundTo, type Vec } from "@/core/geometry";
-import { moveCorner, translateWall } from "@/core/edit";
+import { moveCorner, translateWall, updateIn } from "@/core/edit";
 import { handle, readout } from "../overlay";
 import { hitTest, near } from "../hit";
 import { sceneFor } from "../render/scene";
 import type { Pointer, Tool, ToolHost } from "./types";
+import { openingOnWall } from "./place";
 import { wallLength } from "@/core/walls";
 
 type Drag =
   | { kind: "corner"; from: Vec; anchor: Vec; wallIds: Set<string> }
-  | { kind: "wall"; id: string; start: Vec };
+  | { kind: "wall"; id: string; start: Vec }
+  | { kind: "opening"; id: string };
 
 const HANDLE = 9;
 
@@ -68,7 +70,10 @@ export function selectTool(): Tool {
       const hit = hitTest(sceneFor(plan), p.world, host.toWorld(5));
       host.store.set(selectionAtom, hit);
       if (!hit) return;
-      begin({ kind: "wall", id: hit.id, start: p.world }, host);
+      if (hit.type === "wall")
+        begin({ kind: "wall", id: hit.id, start: p.world }, host);
+      else if (hit.type === "opening")
+        begin({ kind: "opening", id: hit.id }, host);
     },
 
     move(p: Pointer, host: ToolHost) {
@@ -89,6 +94,24 @@ export function selectTool(): Tool {
           y: roundTo(p.world.y - d.start.y, 50),
         };
         host.store.set(previewAtom, (base) => translateWall(base, d.id, delta));
+      } else if (d.kind === "opening") {
+        host.store.set(previewAtom, (base) => {
+          const opening = base.openings.find((o) => o.id === d.id);
+          if (!opening) return base;
+          const spot = openingOnWall(
+            base,
+            p.world,
+            opening.width,
+            host.toWorld(60) + 400
+          );
+          if (!spot) return base;
+          return updateIn(base, "openings", d.id, {
+            wallId: spot.wall.id,
+            offset: spot.offset,
+            width: spot.width,
+            swing: opening.kind === "door" ? spot.swing : opening.swing,
+          });
+        });
       }
     },
 

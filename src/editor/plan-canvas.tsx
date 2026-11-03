@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useStore } from "jotai";
 import type { Vec } from "@/core/geometry";
-import { hitTest, wallBox } from "./hit";
+import { hitTest, openingBox, wallBox } from "./hit";
 import { outline } from "./overlay";
 import { drawPlan, type DrawOptions } from "./render/draw";
 import { sceneFor } from "./render/scene";
@@ -62,8 +62,14 @@ export default function PlanCanvas({ tools, host }: PlanCanvasProps) {
       const plan = store.get(planAtom);
       ctx.save();
       if (!strong) ctx.globalAlpha = 0.55;
-      const wall = plan.walls.find((w) => w.id === target.id);
-      if (wall) outline(ctx, o, wallBox(wall, 0));
+      if (target.type === "wall") {
+        const wall = plan.walls.find((w) => w.id === target.id);
+        if (wall) outline(ctx, o, wallBox(wall, 0));
+      } else {
+        const opening = plan.openings.find((x) => x.id === target.id);
+        const wall = opening && plan.walls.find((w) => w.id === opening.wallId);
+        if (opening && wall) outline(ctx, o, openingBox(opening, wall, 30));
+      }
       ctx.restore();
     };
 

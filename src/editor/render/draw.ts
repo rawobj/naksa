@@ -1,4 +1,6 @@
-import { type Vec } from "@/core/geometry";
+import { add, angleOf, perp, scale, sub, type Vec } from "@/core/geometry";
+import type { Opening, Wall } from "@/core/model";
+import { pointAlong, wallDirection } from "@/core/walls";
 import type { Viewport } from "../editor-atoms";
 import type { Scene } from "./scene";
 import { INK } from "./theme";
@@ -33,6 +35,10 @@ export function drawPlan(ctx: Ctx, scene: Scene, o: DrawOptions): void {
 
   world();
   drawWalls(ctx, scene, px);
+  for (const opening of scene.plan.openings) {
+    const wall = scene.plan.walls.find((w) => w.id === opening.wallId);
+    if (wall) drawOpening(ctx, opening, wall, px);
+  }
 }
 
 function drawGrid(ctx: Ctx, o: DrawOptions): void {
@@ -80,5 +86,78 @@ function drawWalls(ctx: Ctx, scene: Scene, px: number): void {
   ctx.lineWidth = px * 0.75;
   ctx.lineJoin = "miter";
   ctx.fill();
+  ctx.stroke();
+}
+
+// Geometry of an opening: its jambs on the centreline and the wall's axes
+export function openingFrame(opening: Opening, wall: Wall) {
+  const dir = wallDirection(wall);
+  const normal = perp(dir);
+  const centre = pointAlong(wall, opening.offset);
+  const start = add(centre, scale(dir, -opening.width / 2));
+  const end = add(centre, scale(dir, opening.width / 2));
+  return { dir, normal, centre, start, end };
+}
+
+function drawOpening(ctx: Ctx, opening: Opening, wall: Wall, px: number): void {
+  const { normal, start, end } = openingFrame(opening, wall);
+  const half = wall.thickness / 2;
+  const corner = (p: Vec, side: number) => add(p, scale(normal, side * half));
+  ctx.lineJoin = "miter";
+  ctx.lineCap = "butt";
+
+  if (opening.kind === "window") {
+    ctx.beginPath();
+    trace(ctx, [
+      corner(start, 1),
+      corner(end, 1),
+      corner(end, -1),
+      corner(start, -1),
+    ]);
+    ctx.fillStyle = INK.glass;
+    ctx.fill();
+    ctx.strokeStyle = INK.line;
+    ctx.lineWidth = px * 1.1;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(start.x, start.y);
+    ctx.lineTo(end.x, end.y);
+    ctx.lineWidth = px * 0.9;
+    ctx.stroke();
+    return;
+  }
+
+  // Door: threshold lines, the leaf standing open, and its swing arc
+  ctx.beginPath();
+  for (const side of [1, -1]) {
+    const p = corner(start, side);
+    const q = corner(end, side);
+    ctx.moveTo(p.x, p.y);
+    ctx.lineTo(q.x, q.y);
+  }
+  ctx.strokeStyle = INK.faint;
+  ctx.lineWidth = px * 0.8;
+  ctx.stroke();
+
+  const side = opening.swing === "left" ? 1 : -1;
+  const hinge = corner(opening.hinge === "start" ? start : end, side);
+  const latch = corner(opening.hinge === "start" ? end : start, side);
+  const tip = add(hinge, scale(normal, side * opening.width));
+  ctx.beginPath();
+  ctx.moveTo(hinge.x, hinge.y);
+  ctx.lineTo(tip.x, tip.y);
+  ctx.strokeStyle = INK.line;
+  ctx.lineWidth = px * 2;
+  ctx.stroke();
+
+  const a0 = angleOf(sub(tip, hinge));
+  const a1 = angleOf(sub(latch, hinge));
+  let sweep = a1 - a0;
+  while (sweep > Math.PI) sweep -= Math.PI * 2;
+  while (sweep < -Math.PI) sweep += Math.PI * 2;
+  ctx.beginPath();
+  ctx.arc(hinge.x, hinge.y, opening.width, a0, a1, sweep < 0);
+  ctx.lineWidth = px * 0.9;
+  ctx.strokeStyle = INK.soft;
   ctx.stroke();
 }

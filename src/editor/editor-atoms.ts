@@ -1,12 +1,13 @@
 import { atom } from "jotai";
 import { emptyPlan, type Id, type Plan } from "@/core/model";
 
-export type ToolId = "select" | "pan" | "wall";
-export type EntityType = "wall";
+export type ToolId = "select" | "pan" | "wall" | "door" | "window";
+export type EntityType = "wall" | "opening";
 
 // Which list in the plan each selectable type lives in
-export const LISTS: Record<EntityType, "walls"> = {
+export const LISTS: Record<EntityType, "walls" | "openings"> = {
   wall: "walls",
+  opening: "openings",
 };
 
 export type Selection = {

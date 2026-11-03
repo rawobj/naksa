@@ -1,4 +1,5 @@
 import type { ToolId } from "../editor-atoms";
+import { openingTool } from "./opening";
 import { selectTool } from "./select";
 import type { Tool } from "./types";
 import { wallTool } from "./wall";
@@ -14,6 +15,8 @@ export function createTools(): Record<ToolId, Tool> {
     select: selectTool(),
     pan: panTool(),
     wall: wallTool(),
+    door: openingTool("door"),
+    window: openingTool("window"),
   };
 }
 
