@@ -2,17 +2,20 @@ import { atom } from "jotai";
 import { emptyPlan, type Id, type Plan } from "@/core/model";
 
 export type ToolId = "select" | "pan" | "wall" | "door" | "window";
-export type EntityType = "wall" | "opening";
+export type EntityType = "wall" | "opening" | "room";
 
-// Which list in the plan each selectable type lives in
-export const LISTS: Record<EntityType, "walls" | "openings"> = {
+// Which list in the plan each selectable type lives in (rooms aren't stored, see rooms.ts)
+export const LISTS: Record<
+  Exclude<EntityType, "room">,
+  "walls" | "openings"
+> = {
   wall: "walls",
   opening: "openings",
 };
 
 export type Selection = {
   type: EntityType;
-  id: Id;
+  id: Id; // entity id, or the room key for rooms
 };
 
 // Screen position of the world origin, and pixels per millimetre

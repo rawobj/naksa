@@ -30,7 +30,7 @@ export function openingBox(opening: Opening, wall: Wall, grow = 0): Vec[] {
 }
 
 // Finds what is under the cursor, small things on top win:
-// doors and windows, then walls.
+// doors and windows, walls, then rooms.
 // slack is how close (in mm) counts as a hit.
 export function hitTest(
   scene: Scene,
@@ -55,6 +55,10 @@ export function hitTest(
     if (d <= slack && (!best || d < best.d)) best = { id: wall.id, d };
   }
   if (best) return { type: "wall", id: best.id };
+  for (const room of scene.rooms) {
+    if (pointInPolygon(point, room.outline))
+      return { type: "room", id: room.key };
+  }
   return null;
 }
 

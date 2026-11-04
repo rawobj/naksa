@@ -21,6 +21,7 @@ import {
   toolAtom,
   undoAtom,
   viewportAtom,
+  type EntityType,
 } from "./editor-atoms";
 import { createTools, type ToolHost } from "./tools";
 import { zoomAt } from "./viewport";
@@ -97,9 +98,15 @@ export default function Editor() {
 
       // Selection shortcuts: delete, flip door (F)
       const sel = store.get(selectionAtom);
-      if ((e.key === "Delete" || e.key === "Backspace") && sel) {
+      if (
+        (e.key === "Delete" || e.key === "Backspace") &&
+        sel &&
+        sel.type !== "room"
+      ) {
         e.preventDefault();
-        store.set(commitAtom, (p) => removeFrom(p, LISTS[sel.type], sel.id));
+        store.set(commitAtom, (p) =>
+          removeFrom(p, LISTS[sel.type as Exclude<EntityType, "room">], sel.id)
+        );
         store.set(selectionAtom, null);
         return;
       }

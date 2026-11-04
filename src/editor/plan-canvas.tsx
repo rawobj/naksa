@@ -60,15 +60,19 @@ export default function PlanCanvas({ tools, host }: PlanCanvasProps) {
     // Outline for the hovered (faint) or selected (strong) thing
     const highlight = (o: DrawOptions, target: Selection, strong: boolean) => {
       const plan = store.get(planAtom);
+      const scene = sceneFor(plan);
       ctx.save();
       if (!strong) ctx.globalAlpha = 0.55;
       if (target.type === "wall") {
         const wall = plan.walls.find((w) => w.id === target.id);
         if (wall) outline(ctx, o, wallBox(wall, 0));
-      } else {
+      } else if (target.type === "opening") {
         const opening = plan.openings.find((x) => x.id === target.id);
         const wall = opening && plan.walls.find((w) => w.id === opening.wallId);
         if (opening && wall) outline(ctx, o, openingBox(opening, wall, 30));
+      } else {
+        const room = scene.rooms.find((r) => r.key === target.id);
+        if (room) outline(ctx, o, room.inner, strong);
       }
       ctx.restore();
     };

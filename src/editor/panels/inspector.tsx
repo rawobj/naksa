@@ -1,17 +1,21 @@
 "use client";
 
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import { removeFrom, setWallLength, updateIn } from "@/core/edit";
+import { removeFrom, setWallLength, tagRoom, updateIn } from "@/core/edit";
+import { polygonPerimeter } from "@/core/geometry";
+import { formatArea } from "@/core/rooms";
 import { wallLength } from "@/core/walls";
 import { Icon } from "../icons";
+import { sceneFor } from "../render/scene";
 import {
   commitAtom,
   LISTS,
   planAtom,
   selectionAtom,
   wallThicknessAtom,
+  type EntityType,
 } from "../editor-atoms";
-import { NumberField, panel } from "./field";
+import { Fact, NumberField, panel, TextField } from "./field";
 
 // Grey buttons in a row under the fields
 const rowButton =
@@ -23,10 +27,17 @@ export default function Inspector() {
   const [selection, setSelection] = useAtom(selectionAtom);
   const [wallThickness, setWallThickness] = useAtom(wallThicknessAtom);
   const commit = useSetAtom(commitAtom);
+  const scene = sceneFor(plan);
 
   const remove = () => {
-    if (!selection) return;
-    commit((p) => removeFrom(p, LISTS[selection.type], selection.id));
+    if (!selection || selection.type === "room") return;
+    commit((p) =>
+      removeFrom(
+        p,
+        LISTS[selection.type as Exclude<EntityType, "room">],
+        selection.id
+      )
+    );
     setSelection(null);
   };
   const removeButton = (what: string) => (
@@ -150,6 +161,28 @@ export default function Inspector() {
             </div>
           )}
           {removeButton(door ? "door" : "window")}
+        </div>
+      );
+    }
+  }
+
+  // Room selected
+  if (selection?.type === "room") {
+    const room = scene.rooms.find((r) => r.key === selection.id);
+    if (room) {
+      return (
+        <div className={panel.body}>
+          <h2 className={panel.title}>Room</h2>
+          <TextField
+            label="Name"
+            value={room.name}
+            onChange={(name) => commit((p) => tagRoom(p, room, { name }))}
+          />
+          <Fact label="Floor area" value={formatArea(room.area)} />
+          <Fact
+            label="Perimeter"
+            value={`${(polygonPerimeter(room.inner) / 1000).toFixed(2)} m`}
+          />
         </div>
       );
     }

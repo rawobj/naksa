@@ -1,6 +1,8 @@
 import { produce } from "immer";
 import { add, almostEqual, sub, type Vec } from "./geometry";
-import type { Id, Plan } from "./model";
+import type { Id, Plan, RoomTag } from "./model";
+import { newId } from "./model";
+import type { Room } from "./rooms";
 import { JOIN_TOLERANCE, wallLength } from "./walls";
 
 // Every edit here takes a plan and returns a new one, it never changes the old plan.
@@ -101,4 +103,21 @@ export function clampOpenings(plan: Plan): Plan {
       if (offset !== o.offset) o.offset = offset;
     }
   });
+}
+
+// Names a room or changes its finish, creating its tag on first use
+export function tagRoom(
+  plan: Plan,
+  room: Room,
+  patch: Partial<Pick<RoomTag, "name" | "finish">>
+): Plan {
+  if (room.tag) return updateIn(plan, "rooms", room.tag.id, patch);
+  const tag: RoomTag = {
+    id: newId("r"),
+    anchor: { x: Math.round(room.centroid.x), y: Math.round(room.centroid.y) },
+    name: room.name,
+    finish: room.finish || "plain",
+    ...patch,
+  };
+  return addTo(plan, "rooms", tag);
 }
