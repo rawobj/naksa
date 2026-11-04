@@ -1,5 +1,14 @@
-import { add, angleOf, perp, scale, sub, type Vec } from "@/core/geometry";
+import {
+  add,
+  angleOf,
+  boundsOf,
+  perp,
+  scale,
+  sub,
+  type Vec,
+} from "@/core/geometry";
 import type { Opening, Wall } from "@/core/model";
+import { formatArea } from "@/core/rooms";
 import { pointAlong, wallDirection } from "@/core/walls";
 import type { Viewport } from "../editor-atoms";
 import type { Scene } from "./scene";
@@ -30,6 +39,7 @@ export function drawPlan(ctx: Ctx, scene: Scene, o: DrawOptions): void {
     const { x, y, zoom } = o.viewport;
     ctx.setTransform(o.dpr * zoom, 0, 0, o.dpr * zoom, o.dpr * x, o.dpr * y);
   };
+  const screen = () => ctx.setTransform(o.dpr, 0, 0, o.dpr, 0, 0);
   // One screen pixel in world units
   const px = k / o.viewport.zoom;
 
@@ -39,6 +49,48 @@ export function drawPlan(ctx: Ctx, scene: Scene, o: DrawOptions): void {
     const wall = scene.plan.walls.find((w) => w.id === opening.wallId);
     if (wall) drawOpening(ctx, opening, wall, px);
   }
+
+  screen();
+  const text = makeText(ctx, o, k);
+  drawRoomLabels(scene, o, text);
+}
+
+const toScreenPoint = (view: Viewport, p: Vec): Vec => ({
+  x: view.x + p.x * view.zoom,
+  y: view.y + p.y * view.zoom,
+});
+
+type TextStyle = {
+  size?: number;
+  weight?: number;
+  color?: string;
+  align?: CanvasTextAlign;
+  angle?: number; // rotation in radians around the anchor point
+  halo?: boolean;
+};
+
+type TextFn = (value: string, x: number, y: number, style?: TextStyle) => void;
+
+// Text with a paper coloured outline behind it so it stays readable over floors and lines
+function makeText(ctx: Ctx, o: DrawOptions, k: number): TextFn {
+  return (value, x, y, style = {}) => {
+    const size = (style.size ?? 12) * k;
+    ctx.save();
+    ctx.translate(x, y);
+    if (style.angle) ctx.rotate(style.angle);
+    ctx.font = `${style.weight ?? 500} ${size}px ${o.fontFamily}`;
+    ctx.textAlign = style.align ?? "center";
+    ctx.textBaseline = "middle";
+    if (style.halo !== false) {
+      ctx.lineJoin = "round";
+      ctx.lineWidth = size * 0.36;
+      ctx.strokeStyle = INK.paper;
+      ctx.strokeText(value, 0, 0);
+    }
+    ctx.fillStyle = style.color ?? INK.line;
+    ctx.fillText(value, 0, 0);
+    ctx.restore();
+  };
 }
 
 function drawGrid(ctx: Ctx, o: DrawOptions): void {
@@ -160,4 +212,22 @@ function drawOpening(ctx: Ctx, opening: Opening, wall: Wall, px: number): void {
   ctx.lineWidth = px * 0.9;
   ctx.strokeStyle = INK.soft;
   ctx.stroke();
+}
+
+function drawRoomLabels(scene: Scene, o: DrawOptions, text: TextFn): void {
+  for (const room of scene.rooms) {
+    const p = toScreenPoint(o.viewport, room.centroid);
+    const box = boundsOf(room.inner)!;
+    const w = box.maxX - box.minX;
+    // Skip labels that would not fit in the room at this zoom
+    if (w * o.viewport.zoom < 46 * (o.weight ?? 1)) continue;
+    text(room.name, p.x, p.y - 8 * (o.weight ?? 1), {
+      size: 13,
+      weight: 700,
+    });
+    text(formatArea(room.area), p.x, p.y + 8 * (o.weight ?? 1), {
+      size: 11,
+      color: INK.soft,
+    });
+  }
 }
