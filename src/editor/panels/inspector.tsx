@@ -12,6 +12,7 @@ import {
   LISTS,
   planAtom,
   selectionAtom,
+  toolAtom,
   wallThicknessAtom,
   type EntityType,
 } from "../editor-atoms";
@@ -26,6 +27,7 @@ export default function Inspector() {
   const plan = useAtomValue(planAtom);
   const [selection, setSelection] = useAtom(selectionAtom);
   const [wallThickness, setWallThickness] = useAtom(wallThicknessAtom);
+  const setTool = useSetAtom(toolAtom);
   const commit = useSetAtom(commitAtom);
   const scene = sceneFor(plan);
 
@@ -188,11 +190,39 @@ export default function Inspector() {
     }
   }
 
-  // Nothing selected: the thickness given to new walls
+  // Nothing selected: room list, total area and new wall thickness
+  const total = scene.rooms.reduce((sum, room) => sum + room.area, 0);
   return (
     <div className={panel.body}>
       <h2 className={panel.title}>Plan</h2>
-      <p className={panel.help}>Select anything on the plan to edit it.</p>
+      {scene.rooms.length === 0 ? (
+        <p className={panel.help}>
+          Rooms appear here once walls close around a space. Select anything on
+          the plan to edit it.
+        </p>
+      ) : (
+        <>
+          <ul className="mb-1">
+            {scene.rooms.map((room) => (
+              <li key={room.key}>
+                <button
+                  className="-mx-2 flex w-[calc(100%+16px)] justify-between rounded-small px-2 py-[9px] text-left transition-[background] duration-150 ease-naksa hover:bg-tile"
+                  onClick={() => {
+                    setSelection({ type: "room", id: room.key });
+                    setTool("select");
+                  }}
+                >
+                  <span>{room.name}</span>
+                  <span className="font-semibold text-muted">
+                    {formatArea(room.area)}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          <Fact label="Total floor area" value={formatArea(total)} />
+        </>
+      )}
 
       <h3 className={panel.heading}>New walls</h3>
       <div

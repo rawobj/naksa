@@ -298,7 +298,7 @@ export default function PlanCanvas({ tools, host }: PlanCanvasProps) {
       ref={canvasRef}
       className="block size-full touch-none bg-paper focus-visible:outline-offset-[-2px]"
       tabIndex={0}
-      aria-label="Floor plan drawing. Use the tools on the left to draw."
+      aria-label="Floor plan drawing. Use the tools on the left to draw; the properties panel lists every room."
     />
   );
 }
