@@ -1,4 +1,5 @@
 import type { SVGProps } from "react";
+import { catalogueEntry } from "@/core/catalogue";
 
 // The icon set. Every icon is drawn on a 24 unit grid with one stroke weight
 // and round joins, so they read as a single family.
@@ -61,6 +62,62 @@ export function Icon({ name, size = 20, ...rest }: IconProps) {
       {...rest}
     >
       <path d={PATHS[name]} />
+    </svg>
+  );
+}
+
+// A catalogue item's plan symbol as an icon: the same drawing the canvas uses
+export function ItemIcon({ kind, size = 34 }: { kind: string; size?: number }) {
+  const entry = catalogueEntry(kind);
+  if (!entry) return null;
+  const longest = Math.max(entry.width, entry.depth);
+  const w = (entry.width / longest) * 100;
+  const d = (entry.depth / longest) * 100;
+  const unit = Math.min(w, d);
+  return (
+    <svg
+      viewBox={`${-(100 - w) / 2 - 3} ${-(100 - d) / 2 - 3} 106 106`}
+      width={size}
+      height={size}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      {entry.shapes.map((s, i) =>
+        s.t === "rect" ? (
+          <rect
+            key={i}
+            x={s.x * w}
+            y={s.y * d}
+            width={s.w * w}
+            height={s.h * d}
+            rx={Math.min((s.r ?? 0) * unit, (s.w * w) / 2, (s.h * d) / 2)}
+            vectorEffect="non-scaling-stroke"
+          />
+        ) : s.t === "ellipse" ? (
+          <ellipse
+            key={i}
+            cx={s.cx * w}
+            cy={s.cy * d}
+            rx={s.rx * w}
+            ry={s.ry * d}
+            vectorEffect="non-scaling-stroke"
+          />
+        ) : (
+          <line
+            key={i}
+            x1={s.x1 * w}
+            y1={s.y1 * d}
+            x2={s.x2 * w}
+            y2={s.y2 * d}
+            vectorEffect="non-scaling-stroke"
+          />
+        )
+      )}
     </svg>
   );
 }
