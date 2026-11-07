@@ -82,5 +82,11 @@ export function hitTest(
   return null;
 }
 
+// Where an item's rotate handle sits: beyond the middle of its front edge
+export function rotateHandle(item: Item, reach: number): Vec {
+  const angle = (item.rotation * Math.PI) / 180;
+  return add(item.position, rotate({ x: 0, y: item.depth / 2 + reach }, angle));
+}
+
 export const near = (a: Vec, b: Vec, reach: number): boolean =>
   distance(a, b) <= reach;

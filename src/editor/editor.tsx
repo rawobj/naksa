@@ -100,7 +100,7 @@ export default function Editor() {
         return;
       }
 
-      // Selection shortcuts: delete, flip door (F)
+      // Selection shortcuts: delete, rotate (R), nudge (arrows), flip door (F)
       const sel = store.get(selectionAtom);
       if (
         (e.key === "Delete" || e.key === "Backspace") &&
@@ -113,6 +113,35 @@ export default function Editor() {
         );
         store.set(selectionAtom, null);
         return;
+      }
+      if (sel?.type === "item") {
+        const item = plan.items.find((i) => i.id === sel.id);
+        if (item && key === "r") {
+          return store.set(commitAtom, (p) =>
+            updateIn(p, "items", item.id, {
+              rotation: (item.rotation + 90) % 360,
+            })
+          );
+        }
+        const nudge: Record<string, [number, number]> = {
+          ArrowLeft: [-50, 0],
+          ArrowRight: [50, 0],
+          ArrowUp: [0, -50],
+          ArrowDown: [0, 50],
+        };
+        const by = nudge[e.key];
+        if (item && by) {
+          e.preventDefault();
+          const k = e.shiftKey ? 10 : 1;
+          return store.set(commitAtom, (p) =>
+            updateIn(p, "items", item.id, {
+              position: {
+                x: item.position.x + by[0] * k,
+                y: item.position.y + by[1] * k,
+              },
+            })
+          );
+        }
       }
       if (sel?.type === "opening" && key === "f") {
         const o = plan.openings.find((x) => x.id === sel.id);

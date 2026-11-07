@@ -6,21 +6,31 @@ import {
   previewAtom,
   selectionAtom,
 } from "../editor-atoms";
-import { distance, roundTo, type Vec } from "@/core/geometry";
+import {
+  add,
+  angleOf,
+  distance,
+  roundTo,
+  sub,
+  type Vec,
+} from "@/core/geometry";
 import { moveCorner, translateWall, updateIn } from "@/core/edit";
-import { handle, readout } from "../overlay";
-import { hitTest, near } from "../hit";
+import { handle, outline, readout } from "../overlay";
+import { hitTest, near, rotateHandle } from "../hit";
 import { sceneFor } from "../render/scene";
 import type { Pointer, Tool, ToolHost } from "./types";
-import { openingOnWall } from "./place";
+import { openingOnWall, settleItem } from "./place";
 import { wallLength } from "@/core/walls";
 
 type Drag =
   | { kind: "corner"; from: Vec; anchor: Vec; wallIds: Set<string> }
   | { kind: "wall"; id: string; start: Vec }
-  | { kind: "opening"; id: string };
+  | { kind: "opening"; id: string }
+  | { kind: "item"; id: string; grab: Vec }
+  | { kind: "rotate"; id: string };
 
 const HANDLE = 9;
+const ROTATE_REACH = 22;
 
 export function selectTool(): Tool {
   let drag: Drag | null = null;
@@ -66,6 +76,16 @@ export function selectTool(): Tool {
           }
         }
       }
+      if (sel?.type === "item") {
+        const item = plan.items.find((i) => i.id === sel.id);
+        if (
+          item &&
+          near(p.world, rotateHandle(item, host.toWorld(ROTATE_REACH)), reach)
+        ) {
+          begin({ kind: "rotate", id: item.id }, host);
+          return;
+        }
+      }
 
       const hit = hitTest(sceneFor(plan), p.world, host.toWorld(5));
       host.store.set(selectionAtom, hit);
@@ -74,6 +94,13 @@ export function selectTool(): Tool {
         begin({ kind: "wall", id: hit.id, start: p.world }, host);
       else if (hit.type === "opening")
         begin({ kind: "opening", id: hit.id }, host);
+      else if (hit.type === "item") {
+        const item = plan.items.find((i) => i.id === hit.id)!;
+        begin(
+          { kind: "item", id: hit.id, grab: sub(p.world, item.position) },
+          host
+        );
+      }
     },
 
     move(p: Pointer, host: ToolHost) {
@@ -112,6 +139,27 @@ export function selectTool(): Tool {
             swing: opening.kind === "door" ? spot.swing : opening.swing,
           });
         });
+      } else if (d.kind === "item") {
+        host.store.set(previewAtom, (base) => {
+          const item = base.items.find((i) => i.id === d.id);
+          if (!item) return base;
+          return updateIn(
+            base,
+            "items",
+            d.id,
+            settleItem(base, item, sub(p.world, d.grab), p.alt)
+          );
+        });
+      } else if (d.kind === "rotate") {
+        host.store.set(previewAtom, (base) => {
+          const item = base.items.find((i) => i.id === d.id);
+          if (!item) return base;
+          const raw =
+            (angleOf(sub(p.world, item.position)) * 180) / Math.PI - 90;
+          const rotation = ((roundTo(raw, p.shift ? 1 : 15) % 360) + 360) % 360;
+          note = `${rotation}°`;
+          return updateIn(base, "items", d.id, { rotation });
+        });
       }
     },
 
@@ -148,6 +196,16 @@ export function selectTool(): Tool {
             readout(ctx, o, drag.from === wall.a ? wall.a : wall.b, note);
           else if (drag?.kind === "wall")
             readout(ctx, o, wall.b, `${Math.round(wallLength(wall))} mm`);
+        }
+      } else if (selection?.type === "item") {
+        const item = plan.items.find((i) => i.id === selection.id);
+        if (item) {
+          const grip = rotateHandle(item, host.toWorld(ROTATE_REACH));
+          const front = rotateHandle(item, 0);
+          outline(ctx, o, [front, grip, grip], false);
+          handle(ctx, o, grip, 5.5);
+          if (drag?.kind === "rotate" && note)
+            readout(ctx, o, add(grip, { x: 0, y: 0 }), note);
         }
       }
     },

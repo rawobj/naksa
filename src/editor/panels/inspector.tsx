@@ -1,6 +1,7 @@
 "use client";
 
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { catalogueEntry } from "@/core/catalogue";
 import { removeFrom, setWallLength, tagRoom, updateIn } from "@/core/edit";
 import { polygonPerimeter } from "@/core/geometry";
 import { formatArea } from "@/core/rooms";
@@ -163,6 +164,55 @@ export default function Inspector() {
             </div>
           )}
           {removeButton(door ? "door" : "window")}
+        </div>
+      );
+    }
+  }
+
+  // Furniture selected
+  if (selection?.type === "item") {
+    const item = plan.items.find((i) => i.id === selection.id);
+    if (item) {
+      const set = (patch: Partial<typeof item>) =>
+        commit((p) => updateIn(p, "items", item.id, patch));
+      return (
+        <div className={panel.body}>
+          <h2 className={panel.title}>
+            {catalogueEntry(item.kind)?.label ?? "Item"}
+          </h2>
+          <NumberField
+            label="Width"
+            value={item.width}
+            min={100}
+            max={10000}
+            onCommit={(v) => set({ width: v })}
+          />
+          <NumberField
+            label="Depth"
+            value={item.depth}
+            min={100}
+            max={10000}
+            onCommit={(v) => set({ depth: v })}
+          />
+          <NumberField
+            label="Rotation"
+            unit="°"
+            value={item.rotation}
+            min={0}
+            max={359}
+            step={15}
+            onCommit={(v) => set({ rotation: v % 360 })}
+          />
+          <div className="mt-3.5 flex gap-2">
+            <button
+              className={rowButton}
+              onClick={() => set({ rotation: (item.rotation + 90) % 360 })}
+            >
+              <Icon name="rotate" size={17} />
+              Turn 90°
+            </button>
+          </div>
+          {removeButton("item")}
         </div>
       );
     }
