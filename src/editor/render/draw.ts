@@ -7,7 +7,7 @@ import {
   sub,
   type Vec,
 } from "@/core/geometry";
-import { catalogueEntry } from "@/core/catalogue";
+import { catalogueEntry, finishFor } from "@/core/catalogue";
 import type { Item, Opening, Wall } from "@/core/model";
 import { formatArea } from "@/core/rooms";
 import { pointAlong, wallDirection } from "@/core/walls";
@@ -45,6 +45,7 @@ export function drawPlan(ctx: Ctx, scene: Scene, o: DrawOptions): void {
   const px = k / o.viewport.zoom;
 
   world();
+  drawFloors(ctx, scene, o);
   for (const item of scene.plan.items) drawItem(ctx, item, px);
   drawWalls(ctx, scene, px);
   for (const opening of scene.plan.openings) {
@@ -129,6 +130,70 @@ function trace(ctx: Ctx, points: readonly Vec[]): void {
     i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)
   );
   ctx.closePath();
+}
+
+// Floor finishes, drawn to scale: real plank widths and tile sizes
+function drawFloors(ctx: Ctx, scene: Scene, o: DrawOptions): void {
+  const zoom = o.viewport.zoom;
+  for (const room of scene.rooms) {
+    const finish = finishFor(room.finish);
+    ctx.beginPath();
+    trace(ctx, room.outline);
+    ctx.fillStyle = finish.color;
+    ctx.fill();
+    if (finish.pattern === "none" || finish.size * zoom < 5) continue;
+
+    const { minX, minY, maxX, maxY } = boundsOf(room.outline)!;
+    ctx.save();
+    ctx.clip();
+    ctx.beginPath();
+    const size = finish.size;
+    if (finish.pattern === "tiles") {
+      for (let gx = Math.ceil(minX / size) * size; gx < maxX; gx += size) {
+        ctx.moveTo(gx, minY);
+        ctx.lineTo(gx, maxY);
+      }
+      for (let gy = Math.ceil(minY / size) * size; gy < maxY; gy += size) {
+        ctx.moveTo(minX, gy);
+        ctx.lineTo(maxX, gy);
+      }
+    } else {
+      // Boards run along the longer side of the room, joints staggered
+      const along = maxX - minX >= maxY - minY;
+      const board = 1500;
+      const [u0, u1, v0, v1] = along
+        ? [minX, maxX, minY, maxY]
+        : [minY, maxY, minX, maxX];
+      let row = Math.floor(v0 / size);
+      for (let v = row * size; v < v1; v += size, row++) {
+        if (along) {
+          ctx.moveTo(u0, v);
+          ctx.lineTo(u1, v);
+        } else {
+          ctx.moveTo(v, u0);
+          ctx.lineTo(v, u1);
+        }
+        const shift = ((row * 7) % 5) * (board / 5);
+        for (
+          let u = Math.floor(u0 / board) * board + shift;
+          u < u1;
+          u += board
+        ) {
+          if (along) {
+            ctx.moveTo(u, v);
+            ctx.lineTo(u, v + size);
+          } else {
+            ctx.moveTo(v, u);
+            ctx.lineTo(v + size, u);
+          }
+        }
+      }
+    }
+    ctx.strokeStyle = finish.line;
+    ctx.lineWidth = 1 / zoom;
+    ctx.stroke();
+    ctx.restore();
+  }
 }
 
 function drawWalls(ctx: Ctx, scene: Scene, px: number): void {

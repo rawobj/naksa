@@ -1,7 +1,7 @@
 "use client";
 
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import { catalogueEntry } from "@/core/catalogue";
+import { catalogueEntry, FINISHES } from "@/core/catalogue";
 import { removeFrom, setWallLength, tagRoom, updateIn } from "@/core/edit";
 import { polygonPerimeter } from "@/core/geometry";
 import { formatArea } from "@/core/rooms";
@@ -222,6 +222,7 @@ export default function Inspector() {
   if (selection?.type === "room") {
     const room = scene.rooms.find((r) => r.key === selection.id);
     if (room) {
+      const current = room.finish || "plain";
       return (
         <div className={panel.body}>
           <h2 className={panel.title}>Room</h2>
@@ -235,6 +236,26 @@ export default function Inspector() {
             label="Perimeter"
             value={`${(polygonPerimeter(room.inner) / 1000).toFixed(2)} m`}
           />
+          <h3 className={panel.heading}>Floor finish</h3>
+          <div className="grid grid-cols-2 gap-1.5">
+            {FINISHES.map((finish) => (
+              <button
+                key={finish.key}
+                className="flex h-[42px] items-center gap-[9px] rounded-small bg-transparent px-2 text-left text-xs leading-[1.2] font-semibold shadow-[inset_0_0_0_1px_var(--line)] transition-[box-shadow,background] duration-150 ease-naksa hover:bg-tile aria-pressed:shadow-[inset_0_0_0_2px_var(--navy)]"
+                aria-pressed={current === finish.key}
+                onClick={() =>
+                  commit((p) => tagRoom(p, room, { finish: finish.key }))
+                }
+              >
+                <i
+                  className="h-[26px] flex-[0_0_26px] rounded-[5px] border"
+                  style={{ background: finish.color, borderColor: finish.line }}
+                  data-pattern={finish.pattern}
+                />
+                <span>{finish.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
       );
     }

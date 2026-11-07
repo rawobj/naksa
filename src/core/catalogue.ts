@@ -345,3 +345,85 @@ const byKind = new Map(CATALOGUE.map((entry) => [entry.kind, entry]));
 
 export const catalogueEntry = (kind: string): CatalogueEntry | undefined =>
   byKind.get(kind);
+
+// Floor finishes for rooms. Planks and tiles are drawn at their real size in the plan view.
+export type Finish = {
+  key: string;
+  label: string;
+  color: string;
+  line: string; // colour of the joints between planks or tiles
+  pattern: "planks" | "tiles" | "none";
+  size: number; // plank width or tile side, in millimetres
+};
+
+export const FINISHES: Finish[] = [
+  {
+    key: "oak",
+    label: "Oak boards",
+    color: "#e8d2ad",
+    line: "#d2b889",
+    pattern: "planks",
+    size: 180,
+  },
+  {
+    key: "walnut",
+    label: "Walnut boards",
+    color: "#d3b48d",
+    line: "#b99870",
+    pattern: "planks",
+    size: 180,
+  },
+  {
+    key: "ceramic",
+    label: "Ceramic tile",
+    color: "#ece6d9",
+    line: "#d4ccbb",
+    pattern: "tiles",
+    size: 600,
+  },
+  {
+    key: "aqua",
+    label: "Bathroom tile",
+    color: "#d2e0e5",
+    line: "#b4c8d0",
+    pattern: "tiles",
+    size: 300,
+  },
+  {
+    key: "slate",
+    label: "Slate",
+    color: "#d5d6d8",
+    line: "#b9bbc0",
+    pattern: "tiles",
+    size: 800,
+  },
+  {
+    key: "carpet",
+    label: "Carpet",
+    color: "#dcdfd2",
+    line: "#dcdfd2",
+    pattern: "none",
+    size: 0,
+  },
+  {
+    key: "screed",
+    label: "Cement screed",
+    color: "#e2dfd8",
+    line: "#e2dfd8",
+    pattern: "none",
+    size: 0,
+  },
+  {
+    key: "plain",
+    label: "No finish",
+    color: "#f7f4ec",
+    line: "#f7f4ec",
+    pattern: "none",
+    size: 0,
+  },
+];
+
+const byFinish = new Map(FINISHES.map((finish) => [finish.key, finish]));
+
+export const finishFor = (key: string): Finish =>
+  byFinish.get(key) ?? FINISHES[FINISHES.length - 1]!;
