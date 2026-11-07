@@ -20,11 +20,12 @@ export function sceneFor(plan: Plan): Scene {
   const solids = wallSolids(plan).map((solid) =>
     signedArea(solid.points) < 0 ? [...solid.points].reverse() : solid.points
   );
+  const points = [...solids.flat(), ...plan.items.map((item) => item.position)];
   const scene: Scene = {
     plan,
     rooms: detectRooms(plan),
     solids,
-    bounds: boundsOf(solids.flat()),
+    bounds: boundsOf(points),
   };
   cache.set(plan, scene);
   return scene;

@@ -1,16 +1,17 @@
 import { atom } from "jotai";
 import { emptyPlan, type Id, type Plan } from "@/core/model";
 
-export type ToolId = "select" | "pan" | "wall" | "door" | "window";
-export type EntityType = "wall" | "opening" | "room";
+export type ToolId = "select" | "pan" | "wall" | "door" | "window" | "item";
+export type EntityType = "wall" | "opening" | "item" | "room";
 
 // Which list in the plan each selectable type lives in (rooms aren't stored, see rooms.ts)
 export const LISTS: Record<
   Exclude<EntityType, "room">,
-  "walls" | "openings"
+  "walls" | "openings" | "items"
 > = {
   wall: "walls",
   opening: "openings",
+  item: "items",
 };
 
 export type Selection = {
@@ -32,6 +33,9 @@ export const planAtom = atom<Plan>(emptyPlan());
 
 export const toolAtom = atom<ToolId>("select");
 
+// Catalogue kind waiting to be placed while the item tool is active
+export const pendingItemAtom = atom<string | null>(null);
+
 export const wallThicknessAtom = atom(230); // thickness given to newly drawn walls
 
 export const selectionAtom = atom<Selection | null>(null);
@@ -51,6 +55,9 @@ export const redrawAtom = atom(0);
 // Derived values, components using these only re-render when the value itself changes
 export const planNameAtom = atom((get) => get(planAtom).name);
 export const zoomAtom = atom((get) => get(viewportAtom).zoom);
+export const armedItemAtom = atom((get) =>
+  get(toolAtom) === "item" ? get(pendingItemAtom) : null
+);
 
 // Undo history. A plan is never changed in place, every edit makes a new one,
 // so the history is just lists of older and newer plans.

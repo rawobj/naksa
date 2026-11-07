@@ -2,7 +2,7 @@
 
 import { useAtomValue, useSetAtom } from "jotai";
 import { Icon, type IconName } from "../icons";
-import { toolAtom, type ToolId } from "../editor-atoms";
+import { pendingItemAtom, toolAtom, type ToolId } from "../editor-atoms";
 
 export const TOOLS: {
   id: ToolId;
@@ -46,6 +46,7 @@ export const TOOLS: {
 export default function ToolRail() {
   const tool = useAtomValue(toolAtom);
   const setTool = useSetAtom(toolAtom);
+  const setPendingItem = useSetAtom(pendingItemAtom);
 
   return (
     <nav
@@ -58,7 +59,10 @@ export default function ToolRail() {
           className="flex min-h-14 w-[62px] flex-col items-center justify-center gap-1 rounded-big px-0.5 pt-[7px] pb-1.5 text-[10.5px] leading-[1.1] font-semibold text-on-navy-muted transition-[background,color] duration-180 ease-naksa focus-visible:outline-brass-bright enabled:hover:bg-navy-raised enabled:hover:text-on-navy enabled:aria-pressed:bg-brass enabled:aria-pressed:text-on-brass disabled:text-[#6f7b94] max-[720px]:min-h-[50px] max-[720px]:flex-none"
           aria-pressed={tool === t.id}
           title={`${t.title} (${t.key})`}
-          onClick={() => setTool(t.id)}
+          onClick={() => {
+            setTool(t.id);
+            setPendingItem(null);
+          }}
         >
           <Icon name={t.icon} size={22} />
           <span>{t.label}</span>

@@ -3,15 +3,29 @@ import {
   distance,
   pointInPolygon,
   projectOnSegment,
+  rotate,
   scale,
   sub,
   type Vec,
 } from "@/core/geometry";
-import type { Opening, Plan, Wall } from "@/core/model";
+import type { Item, Opening, Plan, Wall } from "@/core/model";
 import { normalize, perp } from "@/core/geometry";
 import { pointAlong, wallLength } from "@/core/walls";
 import type { Scene } from "./render/scene";
 import type { Selection } from "./editor-atoms";
+
+// The four corners of an item's footprint
+export function itemCorners(item: Item, grow = 0): Vec[] {
+  const w = item.width / 2 + grow;
+  const d = item.depth / 2 + grow;
+  const angle = (item.rotation * Math.PI) / 180;
+  return [
+    { x: -w, y: -d },
+    { x: w, y: -d },
+    { x: w, y: d },
+    { x: -w, y: d },
+  ].map((p) => add(item.position, rotate(p, angle)));
+}
 
 // The outline of a wall as a plain rectangle, for highlights
 export function wallBox(wall: Wall, grow = 0): Vec[] {
@@ -30,7 +44,7 @@ export function openingBox(opening: Opening, wall: Wall, grow = 0): Vec[] {
 }
 
 // Finds what is under the cursor, small things on top win:
-// doors and windows, walls, then rooms.
+// doors and windows, furniture, walls, then rooms.
 // slack is how close (in mm) counts as a hit.
 export function hitTest(
   scene: Scene,
@@ -47,6 +61,12 @@ export function hitTest(
     ) {
       return { type: "opening", id: opening.id };
     }
+  }
+  // Backwards so the item drawn last (on top) is picked first
+  for (let i = plan.items.length - 1; i >= 0; i--) {
+    const item = plan.items[i]!;
+    if (pointInPolygon(point, itemCorners(item)))
+      return { type: "item", id: item.id };
   }
   let best: { id: string; d: number } | null = null;
   for (const wall of plan.walls) {

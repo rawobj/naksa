@@ -2,14 +2,17 @@
 
 import { useEffect, useRef } from "react";
 import { useStore } from "jotai";
+import { addTo } from "@/core/edit";
 import type { Vec } from "@/core/geometry";
-import { hitTest, openingBox, wallBox } from "./hit";
+import { hitTest, itemCorners, openingBox, wallBox } from "./hit";
 import { outline } from "./overlay";
 import { drawPlan, type DrawOptions } from "./render/draw";
 import { sceneFor } from "./render/scene";
 import {
+  commitAtom,
   cursorAtom,
   fitRequestAtom,
+  pendingItemAtom,
   planAtom,
   redrawAtom,
   selectionAtom,
@@ -20,7 +23,11 @@ import {
   type Selection,
 } from "./editor-atoms";
 import type { Pointer, Tool, ToolHost } from "./tools";
+import { makeItem } from "./tools/item";
 import { fitBounds, toWorld, zoomAt } from "./viewport";
+
+// Custom drag type so only furniture from our toolbox can be dropped on the canvas
+export const ITEM_MIME = "application/x-naksa-item";
 
 type PlanCanvasProps = {
   tools: Record<string, Tool>;
@@ -70,6 +77,9 @@ export default function PlanCanvas({ tools, host }: PlanCanvasProps) {
         const opening = plan.openings.find((x) => x.id === target.id);
         const wall = opening && plan.walls.find((w) => w.id === opening.wallId);
         if (opening && wall) outline(ctx, o, openingBox(opening, wall, 30));
+      } else if (target.type === "item") {
+        const item = plan.items.find((i) => i.id === target.id);
+        if (item) outline(ctx, o, itemCorners(item, 30));
       } else {
         const room = scene.rooms.find((r) => r.key === target.id);
         if (room) outline(ctx, o, room.inner, strong);
@@ -150,6 +160,7 @@ export default function PlanCanvas({ tools, host }: PlanCanvasProps) {
       ...[
         planAtom,
         toolAtom,
+        pendingItemAtom,
         wallThicknessAtom,
         selectionAtom,
         viewportAtom,
@@ -160,7 +171,7 @@ export default function PlanCanvas({ tools, host }: PlanCanvasProps) {
       store.sub(fitRequestAtom, fit),
     ];
 
-    const pointer = (e: PointerEvent | MouseEvent): Pointer => {
+    const pointer = (e: PointerEvent | MouseEvent | DragEvent): Pointer => {
       const rect = canvas.getBoundingClientRect();
       const screen = { x: e.clientX - rect.left, y: e.clientY - rect.top };
       return {
@@ -263,6 +274,26 @@ export default function PlanCanvas({ tools, host }: PlanCanvasProps) {
       }
     };
 
+    // Dropping furniture from the toolbox
+    const onDragOver = (e: DragEvent) => {
+      if (e.dataTransfer?.types.includes(ITEM_MIME)) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "copy";
+      }
+    };
+    const onDrop = (e: DragEvent) => {
+      const kind = e.dataTransfer?.getData(ITEM_MIME);
+      if (!kind) return;
+      e.preventDefault();
+      const p = pointer(e);
+      const item = makeItem(store.get(planAtom), kind, p.world, e.altKey);
+      if (!item) return;
+      store.set(commitAtom, (plan) => addTo(plan, "items", item));
+      store.set(selectionAtom, { type: "item", id: item.id });
+      store.set(toolAtom, "select");
+      store.set(pendingItemAtom, null);
+    };
+
     canvas.addEventListener("pointerdown", onDown);
     canvas.addEventListener("pointermove", onMove);
     canvas.addEventListener("pointerup", onUp);
@@ -271,6 +302,8 @@ export default function PlanCanvas({ tools, host }: PlanCanvasProps) {
     canvas.addEventListener("dblclick", onDouble);
     canvas.addEventListener("wheel", onWheel, { passive: false });
     canvas.addEventListener("contextmenu", onContext);
+    canvas.addEventListener("dragover", onDragOver);
+    canvas.addEventListener("drop", onDrop);
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     // Text drawn before the font loads uses the fallback font, so redraw once it's ready
@@ -288,6 +321,8 @@ export default function PlanCanvas({ tools, host }: PlanCanvasProps) {
       canvas.removeEventListener("dblclick", onDouble);
       canvas.removeEventListener("wheel", onWheel);
       canvas.removeEventListener("contextmenu", onContext);
+      canvas.removeEventListener("dragover", onDragOver);
+      canvas.removeEventListener("drop", onDrop);
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };

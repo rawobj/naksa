@@ -5,6 +5,7 @@ import { useStore } from "jotai";
 import { removeFrom, updateIn } from "@/core/edit";
 import SidePanel from "./panels/side-panel";
 import StatusBar from "./panels/status-bar";
+import Toolbox from "./panels/toolbox";
 import ToolRail, { TOOLS } from "./panels/tool-rail";
 import TopBar from "./panels/top-bar";
 import PlanCanvas, { isTyping } from "./plan-canvas";
@@ -13,6 +14,7 @@ import {
   commitAtom,
   fitRequestAtom,
   LISTS,
+  pendingItemAtom,
   planAtom,
   redoAtom,
   redrawAtom,
@@ -28,14 +30,14 @@ import { zoomAt } from "./viewport";
 import { cn } from "@/lib/utils";
 
 // Grid layout. Below 960px the side panel moves under the drawing,
-// on a phone the tools run across the top.
+// on a phone the tools run across the top and the furniture list is dropped.
 const layout = cn(
   "grid h-dvh",
-  "grid-cols-[var(--rail)_minmax(0,1fr)_var(--side)] grid-rows-[var(--bar)_minmax(0,1fr)]",
-  "[grid-template-areas:'bar_bar_bar'_'rail_stage_side']",
-  "max-[1180px]:[--side:264px]",
-  "max-[960px]:grid-cols-[var(--rail)_minmax(0,1fr)] max-[960px]:grid-rows-[var(--bar)_minmax(0,1fr)_minmax(0,34dvh)]",
-  "max-[960px]:[grid-template-areas:'bar_bar'_'rail_stage'_'side_side']",
+  "grid-cols-[var(--rail)_var(--toolbox)_minmax(0,1fr)_var(--side)] grid-rows-[var(--bar)_minmax(0,1fr)]",
+  "[grid-template-areas:'bar_bar_bar_bar'_'rail_toolbox_stage_side']",
+  "max-[1180px]:[--side:264px] max-[1180px]:[--toolbox:172px]",
+  "max-[960px]:[--toolbox:150px] max-[960px]:grid-cols-[var(--rail)_var(--toolbox)_minmax(0,1fr)] max-[960px]:grid-rows-[var(--bar)_minmax(0,1fr)_minmax(0,34dvh)]",
+  "max-[960px]:[grid-template-areas:'bar_bar_bar'_'rail_toolbox_stage'_'side_side_side']",
   "max-[720px]:grid-cols-[minmax(0,1fr)] max-[720px]:grid-rows-[var(--bar)_auto_minmax(0,1fr)_minmax(0,32dvh)]",
   "max-[720px]:[grid-template-areas:'bar'_'rail'_'stage'_'side']"
 );
@@ -91,8 +93,10 @@ export default function Editor() {
         return;
       }
       if (e.key === "Escape") {
-        if (!active.cancel?.(host)) store.set(toolAtom, "select");
-        else store.set(redrawAtom, (n) => n + 1);
+        if (!active.cancel?.(host)) {
+          store.set(toolAtom, "select");
+          store.set(pendingItemAtom, null);
+        } else store.set(redrawAtom, (n) => n + 1);
         return;
       }
 
@@ -135,7 +139,10 @@ export default function Editor() {
 
       // Tool letters (V, H, W, D, N)
       const picked = TOOLS.find((t) => t.key.toLowerCase() === key);
-      if (picked) store.set(toolAtom, picked.id);
+      if (picked) {
+        store.set(toolAtom, picked.id);
+        store.set(pendingItemAtom, null);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -151,6 +158,7 @@ export default function Editor() {
     <div className={layout}>
       <TopBar />
       <ToolRail />
+      <Toolbox />
 
       {/* Canvas in the middle */}
       <main

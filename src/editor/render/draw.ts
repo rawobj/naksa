@@ -7,7 +7,8 @@ import {
   sub,
   type Vec,
 } from "@/core/geometry";
-import type { Opening, Wall } from "@/core/model";
+import { catalogueEntry } from "@/core/catalogue";
+import type { Item, Opening, Wall } from "@/core/model";
 import { formatArea } from "@/core/rooms";
 import { pointAlong, wallDirection } from "@/core/walls";
 import type { Viewport } from "../editor-atoms";
@@ -44,6 +45,7 @@ export function drawPlan(ctx: Ctx, scene: Scene, o: DrawOptions): void {
   const px = k / o.viewport.zoom;
 
   world();
+  for (const item of scene.plan.items) drawItem(ctx, item, px);
   drawWalls(ctx, scene, px);
   for (const opening of scene.plan.openings) {
     const wall = scene.plan.walls.find((w) => w.id === opening.wallId);
@@ -212,6 +214,66 @@ function drawOpening(ctx: Ctx, opening: Opening, wall: Wall, px: number): void {
   ctx.lineWidth = px * 0.9;
   ctx.strokeStyle = INK.soft;
   ctx.stroke();
+}
+
+// Draws a catalogue symbol in a box centred on the origin
+export function drawSymbol(
+  ctx: Ctx,
+  kind: string,
+  width: number,
+  depth: number
+): void {
+  const entry = catalogueEntry(kind);
+  const shapes = entry?.shapes ?? [
+    { t: "rect" as const, x: 0, y: 0, w: 1, h: 1 },
+  ];
+  const unit = Math.min(width, depth);
+  for (const s of shapes) {
+    ctx.beginPath();
+    if (s.t === "rect") {
+      const r = Math.min(
+        (s.r ?? 0) * unit,
+        (s.w * width) / 2,
+        (s.h * depth) / 2
+      );
+      ctx.roundRect(
+        s.x * width - width / 2,
+        s.y * depth - depth / 2,
+        s.w * width,
+        s.h * depth,
+        r
+      );
+      ctx.fill();
+    } else if (s.t === "ellipse") {
+      ctx.ellipse(
+        s.cx * width - width / 2,
+        s.cy * depth - depth / 2,
+        s.rx * width,
+        s.ry * depth,
+        0,
+        0,
+        Math.PI * 2
+      );
+      ctx.fill();
+    } else {
+      ctx.moveTo(s.x1 * width - width / 2, s.y1 * depth - depth / 2);
+      ctx.lineTo(s.x2 * width - width / 2, s.y2 * depth - depth / 2);
+    }
+    ctx.stroke();
+  }
+}
+
+function drawItem(ctx: Ctx, item: Item, px: number): void {
+  ctx.save();
+  ctx.translate(item.position.x, item.position.y);
+  ctx.rotate((item.rotation * Math.PI) / 180);
+  ctx.fillStyle = INK.furniture;
+  ctx.strokeStyle = INK.furnitureLine;
+  ctx.lineWidth = px * 1.1;
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  drawSymbol(ctx, item.kind, item.width, item.depth);
+  ctx.restore();
 }
 
 function drawRoomLabels(scene: Scene, o: DrawOptions, text: TextFn): void {
