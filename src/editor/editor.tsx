@@ -1,8 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore } from "jotai";
 import { removeFrom, updateIn } from "@/core/edit";
+import { emptyPlan, type Plan } from "@/core/model";
+import { PlanFileError } from "@/core/serialize";
+import { downloadPlan, loadSaved, pickPlanFile, saveLocal } from "./files";
 import SidePanel from "./panels/side-panel";
 import StatusBar from "./panels/status-bar";
 import Toolbox from "./panels/toolbox";
@@ -14,6 +17,7 @@ import {
   commitAtom,
   fitRequestAtom,
   LISTS,
+  loadAtom,
   pendingItemAtom,
   planAtom,
   redoAtom,
@@ -47,6 +51,7 @@ export default function Editor() {
   const store = useStore();
   const tools = useMemo(() => createTools(), []);
   const stageRef = useRef<HTMLDivElement>(null);
+  const [notice, setNotice] = useState("");
 
   // What the tools can use from the canvas (snapping at the current zoom, px to mm)
   const host = useMemo<ToolHost>(
@@ -66,6 +71,68 @@ export default function Editor() {
     [store]
   );
 
+  // Shows a message at the bottom for 4 seconds
+  const say = useCallback((message: string) => {
+    setNotice(message);
+    window.setTimeout(
+      () => setNotice((current) => (current === message ? "" : current)),
+      4000
+    );
+  }, []);
+
+  const replacePlan = useCallback(
+    (plan: Plan) => {
+      store.set(commitAtom, plan);
+      store.set(selectionAtom, null);
+      store.set(toolAtom, "select");
+      store.set(pendingItemAtom, null);
+      store.set(fitRequestAtom, (n) => n + 1);
+    },
+    [store]
+  );
+
+  // Restore the last plan, then keep saving it as it changes
+  useEffect(() => {
+    const saved = loadSaved();
+    if (saved) {
+      store.set(loadAtom, saved);
+      store.set(fitRequestAtom, (n) => n + 1);
+    }
+
+    // Save 400ms after the last change, not on every single edit
+    let timer = 0;
+    const unsubscribe = store.sub(planAtom, () => {
+      const plan = store.get(planAtom);
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => saveLocal(plan), 400);
+    });
+    return () => {
+      unsubscribe();
+      window.clearTimeout(timer);
+    };
+  }, [store]);
+
+  const open = useCallback(async () => {
+    try {
+      const plan = await pickPlanFile();
+      if (plan) {
+        replacePlan(plan);
+        say(`Opened “${plan.name}”.`);
+      }
+    } catch (error) {
+      say(
+        error instanceof PlanFileError
+          ? `${error.message} Choose a file saved from Naksa.`
+          : "That file could not be read."
+      );
+    }
+  }, [replacePlan, say]);
+
+  const save = useCallback(() => {
+    downloadPlan(store.get(planAtom));
+    say("Plan file saved to your downloads.");
+  }, [store, say]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -73,8 +140,17 @@ export default function Editor() {
       const mod = e.ctrlKey || e.metaKey;
       const key = e.key.toLowerCase();
 
-      // Shortcuts are ignored while typing in a field
-      if (isTyping(e.target)) return;
+      // Save and open work everywhere, even while typing in a field
+      if (mod && key === "s") {
+        e.preventDefault();
+        return save();
+      }
+      if (mod && key === "o") {
+        e.preventDefault();
+        return void open();
+      }
+      // Everything else is ignored while typing or when a dialog is open
+      if (isTyping(e.target) || document.querySelector("dialog[open]")) return;
       if (mod && key === "z") {
         e.preventDefault();
         return store.set(e.shiftKey ? redoAtom : undoAtom);
@@ -175,7 +251,7 @@ export default function Editor() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [store, tools, host]);
+  }, [store, tools, host, save, open]);
 
   // Middle of the canvas for the zoom buttons, 34 is the status bar height
   const centre = useCallback(() => {
@@ -185,7 +261,11 @@ export default function Editor() {
 
   return (
     <div className={layout}>
-      <TopBar />
+      <TopBar
+        onNew={() => replacePlan(emptyPlan())}
+        onOpen={open}
+        onSave={save}
+      />
       <ToolRail />
       <Toolbox />
 
@@ -201,6 +281,21 @@ export default function Editor() {
       </main>
 
       <SidePanel />
+
+      {/* Toast message */}
+      <div
+        className={cn(
+          "pointer-events-none fixed bottom-[52px] left-1/2 max-w-[min(480px,calc(100vw-32px))] rounded-big bg-navy px-4 py-2.5 font-semibold text-on-navy shadow-raised",
+          "transition-[opacity,transform] duration-250 ease-naksa",
+          notice
+            ? "[transform:translate(-50%,0)] opacity-100"
+            : "[transform:translate(-50%,8px)] opacity-0"
+        )}
+        role="status"
+        aria-live="polite"
+      >
+        {notice}
+      </div>
     </div>
   );
 }

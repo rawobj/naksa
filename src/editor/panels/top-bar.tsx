@@ -12,12 +12,22 @@ import {
   undoAtom,
 } from "../editor-atoms";
 
+type TopBarProps = {
+  onNew(): void;
+  onOpen(): void;
+  onSave(): void;
+};
+
 // Undo and redo
 const iconButton =
   "grid size-[34px] place-items-center rounded-small text-on-navy transition-[background] duration-150 ease-naksa enabled:hover:bg-navy-raised disabled:text-[#7f8aa2]";
 
-// Top bar: plan name, undo and redo
-export default function TopBar() {
+// File actions, the label hides below 1280px
+const action =
+  "flex h-9 items-center gap-[7px] rounded-small px-[11px] font-semibold whitespace-nowrap text-on-navy transition-[background] duration-150 ease-naksa hover:bg-navy-raised max-[1280px]:w-9 max-[1280px]:justify-center max-[1280px]:px-0 [&>span]:max-[1280px]:hidden";
+
+// Top bar: plan name, undo and redo and file actions
+export default function TopBar({ onNew, onOpen, onSave }: TopBarProps) {
   const name = useAtomValue(planNameAtom);
   const canUndo = useAtomValue(canUndoAtom);
   const canRedo = useAtomValue(canRedoAtom);
@@ -66,6 +76,29 @@ export default function TopBar() {
           aria-label="Redo"
         >
           <Icon name="redo" />
+        </button>
+      </div>
+
+      <div className="ml-auto flex items-center gap-0.5">
+        <button className={action} onClick={onNew} title="Start a blank plan">
+          <Icon name="file" size={18} />
+          <span>New</span>
+        </button>
+        <button
+          className={action}
+          onClick={onOpen}
+          title="Open a saved plan file (Ctrl+O)"
+        >
+          <Icon name="open" size={18} />
+          <span>Open</span>
+        </button>
+        <button
+          className={action}
+          onClick={onSave}
+          title="Save the plan as a file (Ctrl+S)"
+        >
+          <Icon name="save" size={18} />
+          <span>Save</span>
         </button>
       </div>
     </header>

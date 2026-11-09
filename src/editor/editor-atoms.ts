@@ -134,3 +134,12 @@ export const redoAtom = atom(null, (get, set) => {
   set(planAtom, next);
   set(selectionAtom, null);
 });
+
+// Swaps in a different plan and clears history
+export const loadAtom = atom(null, (_get, set, plan: Plan) => {
+  set(pastAtom, []);
+  set(futureAtom, []);
+  set(gestureStartAtom, null);
+  set(selectionAtom, null);
+  set(planAtom, plan);
+});
