@@ -20,7 +20,12 @@ export function sceneFor(plan: Plan): Scene {
   const solids = wallSolids(plan).map((solid) =>
     signedArea(solid.points) < 0 ? [...solid.points].reverse() : solid.points
   );
-  const points = [...solids.flat(), ...plan.items.map((item) => item.position)];
+  const points = [
+    ...solids.flat(),
+    ...plan.items.map((item) => item.position),
+    ...plan.labels.map((label) => label.position),
+    ...plan.dimensions.flatMap((d) => [d.a, d.b]),
+  ];
   const scene: Scene = {
     plan,
     rooms: detectRooms(plan),

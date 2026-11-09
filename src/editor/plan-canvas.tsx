@@ -4,10 +4,17 @@ import { useEffect, useRef } from "react";
 import { useStore } from "jotai";
 import { addTo } from "@/core/edit";
 import type { Vec } from "@/core/geometry";
-import { hitTest, itemCorners, openingBox, wallBox } from "./hit";
+import {
+  dimensionLine,
+  hitTest,
+  itemCorners,
+  openingBox,
+  wallBox,
+} from "./hit";
 import { outline } from "./overlay";
 import { drawPlan, type DrawOptions } from "./render/draw";
 import { sceneFor } from "./render/scene";
+import { INK } from "./render/theme";
 import {
   commitAtom,
   cursorAtom,
@@ -24,7 +31,7 @@ import {
 } from "./editor-atoms";
 import type { Pointer, Tool, ToolHost } from "./tools";
 import { makeItem } from "./tools/item";
-import { fitBounds, toWorld, zoomAt } from "./viewport";
+import { fitBounds, toScreen, toWorld, zoomAt } from "./viewport";
 
 // Custom drag type so only furniture from our toolbox can be dropped on the canvas
 export const ITEM_MIME = "application/x-naksa-item";
@@ -80,6 +87,31 @@ export default function PlanCanvas({ tools, host }: PlanCanvasProps) {
       } else if (target.type === "item") {
         const item = plan.items.find((i) => i.id === target.id);
         if (item) outline(ctx, o, itemCorners(item, 30));
+      } else if (target.type === "dimension") {
+        const d = plan.dimensions.find((x) => x.id === target.id);
+        if (d) {
+          const [a, b] = dimensionLine(d).map((p) =>
+            toScreen(o.viewport, p)
+          ) as [Vec, Vec];
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.strokeStyle = INK.select;
+          ctx.lineWidth = strong ? 3 : 2;
+          ctx.stroke();
+        }
+      } else if (target.type === "label") {
+        const label = plan.labels.find((l) => l.id === target.id);
+        if (label) {
+          const p = toScreen(o.viewport, label.position);
+          ctx.font = `600 13px ${fontFamily}`;
+          const w = ctx.measureText(label.text).width + 16;
+          ctx.beginPath();
+          ctx.roundRect(p.x - w / 2, p.y - 13, w, 26, 6);
+          ctx.strokeStyle = INK.select;
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        }
       } else {
         const room = scene.rooms.find((r) => r.key === target.id);
         if (room) outline(ctx, o, room.inner, strong);

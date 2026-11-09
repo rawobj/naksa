@@ -166,7 +166,7 @@ export default function Editor() {
       if (e.key === "-")
         return store.set(viewportAtom, zoomAt(viewport, centre(), 0.8));
 
-      // Tool letters (V, H, W, D, N)
+      // Tool letters (V, H, W, D, N, M, T)
       const picked = TOOLS.find((t) => t.key.toLowerCase() === key);
       if (picked) {
         store.set(toolAtom, picked.id);

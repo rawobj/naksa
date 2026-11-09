@@ -2,13 +2,16 @@ import {
   add,
   angleOf,
   boundsOf,
+  distance,
+  midpoint,
+  normalize,
   perp,
   scale,
   sub,
   type Vec,
 } from "@/core/geometry";
 import { catalogueEntry, finishFor } from "@/core/catalogue";
-import type { Item, Opening, Wall } from "@/core/model";
+import type { Dimension, Item, Opening, Wall } from "@/core/model";
 import { formatArea } from "@/core/rooms";
 import { pointAlong, wallDirection } from "@/core/walls";
 import type { Viewport } from "../editor-atoms";
@@ -55,7 +58,13 @@ export function drawPlan(ctx: Ctx, scene: Scene, o: DrawOptions): void {
 
   screen();
   const text = makeText(ctx, o, k);
+  for (const d of scene.plan.dimensions)
+    drawDimension(ctx, d, o, text, INK.soft);
   drawRoomLabels(scene, o, text);
+  for (const label of scene.plan.labels) {
+    const p = toScreenPoint(o.viewport, label.position);
+    text(label.text, p.x, p.y, { size: 13, weight: 600, color: INK.line });
+  }
 }
 
 const toScreenPoint = (view: Viewport, p: Vec): Vec => ({
@@ -339,6 +348,75 @@ function drawItem(ctx: Ctx, item: Item, px: number): void {
   ctx.lineCap = "round";
   drawSymbol(ctx, item.kind, item.width, item.depth);
   ctx.restore();
+}
+
+// Keeps text reading left to right, whichever way a line was drawn
+function readable(angle: number): number {
+  let a = angle;
+  while (a >= Math.PI / 2 - 1e-6) a -= Math.PI;
+  while (a < -Math.PI / 2 - 1e-6) a += Math.PI;
+  return a;
+}
+
+export const formatLength = (mm: number): string => `${Math.round(mm)}`;
+
+// A dimension line with extension lines, tick marks and its length in millimetres
+export function drawDimension(
+  ctx: Ctx,
+  d: Dimension,
+  o: DrawOptions,
+  text: TextFn,
+  color: string
+): void {
+  const len = distance(d.a, d.b);
+  if (len < 1) return;
+  const k = o.weight ?? 1;
+  const dir = normalize(sub(d.b, d.a));
+  const normal = perp(dir);
+  const a = toScreenPoint(o.viewport, add(d.a, scale(normal, d.offset)));
+  const b = toScreenPoint(o.viewport, add(d.b, scale(normal, d.offset)));
+  const a0 = toScreenPoint(o.viewport, d.a);
+  const b0 = toScreenPoint(o.viewport, d.b);
+  const sign = Math.sign(d.offset) || 1;
+  const reach = scale(normal, sign * 5 * k);
+  const clear = scale(normal, sign * 4 * k);
+
+  ctx.beginPath();
+  ctx.moveTo(a.x, a.y);
+  ctx.lineTo(b.x, b.y);
+  for (const [from, to] of [
+    [a0, a],
+    [b0, b],
+  ] as const) {
+    if (distance(from, to) < 6 * k) continue;
+    ctx.moveTo(from.x + clear.x, from.y + clear.y);
+    ctx.lineTo(to.x + reach.x, to.y + reach.y);
+  }
+  ctx.strokeStyle = color;
+  ctx.lineWidth = k;
+  ctx.stroke();
+
+  // Architectural ticks: short strokes at 45 degrees through each end
+  const tick = scale(normalize(add(dir, normal)), 4.5 * k);
+  ctx.beginPath();
+  for (const p of [a, b]) {
+    ctx.moveTo(p.x - tick.x, p.y - tick.y);
+    ctx.lineTo(p.x + tick.x, p.y + tick.y);
+  }
+  ctx.lineWidth = 1.6 * k;
+  ctx.stroke();
+
+  const angle = readable(angleOf(dir));
+  const mid = midpoint(a, b);
+  const lift = { x: Math.sin(angle) * 9 * k, y: -Math.cos(angle) * 9 * k };
+  if (distance(a, b) > 26 * k) {
+    text(formatLength(len), mid.x + lift.x, mid.y + lift.y, {
+      size: 11,
+      weight: 600,
+      color,
+      angle,
+    });
+  }
 }
 
 function drawRoomLabels(scene: Scene, o: DrawOptions, text: TextFn): void {

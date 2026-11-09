@@ -8,7 +8,7 @@ import {
   sub,
   type Vec,
 } from "@/core/geometry";
-import type { Item, Opening, Plan, Wall } from "@/core/model";
+import type { Dimension, Item, Opening, Plan, Wall } from "@/core/model";
 import { normalize, perp } from "@/core/geometry";
 import { pointAlong, wallLength } from "@/core/walls";
 import type { Scene } from "./render/scene";
@@ -43,8 +43,14 @@ export function openingBox(opening: Opening, wall: Wall, grow = 0): Vec[] {
   return [add(a, n), add(b, n), sub(b, n), sub(a, n)];
 }
 
+// The two ends of a dimension line, where it is drawn
+export function dimensionLine(d: Dimension): [Vec, Vec] {
+  const n = scale(perp(normalize(sub(d.b, d.a))), d.offset);
+  return [add(d.a, n), add(d.b, n)];
+}
+
 // Finds what is under the cursor, small things on top win:
-// doors and windows, furniture, walls, then rooms.
+// notes, dimensions, doors and windows, furniture, walls, then rooms.
 // slack is how close (in mm) counts as a hit.
 export function hitTest(
   scene: Scene,
@@ -52,6 +58,20 @@ export function hitTest(
   slack: number
 ): Selection | null {
   const plan: Plan = scene.plan;
+  for (const label of plan.labels) {
+    const reach = Math.max(slack * 2.5, 200);
+    if (
+      Math.abs(point.x - label.position.x) < reach * 1.6 &&
+      Math.abs(point.y - label.position.y) < reach * 0.7
+    ) {
+      return { type: "label", id: label.id };
+    }
+  }
+  for (const d of plan.dimensions) {
+    const [a, b] = dimensionLine(d);
+    if (projectOnSegment(point, a, b).distance <= slack * 1.4)
+      return { type: "dimension", id: d.id };
+  }
   for (const opening of plan.openings) {
     const wall = plan.walls.find((w) => w.id === opening.wallId);
     if (

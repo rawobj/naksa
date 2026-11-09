@@ -10,6 +10,9 @@ import {
   add,
   angleOf,
   distance,
+  dot,
+  normalize,
+  perp,
   roundTo,
   sub,
   type Vec,
@@ -27,7 +30,9 @@ type Drag =
   | { kind: "wall"; id: string; start: Vec }
   | { kind: "opening"; id: string }
   | { kind: "item"; id: string; grab: Vec }
-  | { kind: "rotate"; id: string };
+  | { kind: "rotate"; id: string }
+  | { kind: "dimension"; id: string }
+  | { kind: "label"; id: string; grab: Vec };
 
 const HANDLE = 9;
 const ROTATE_REACH = 22;
@@ -94,10 +99,18 @@ export function selectTool(): Tool {
         begin({ kind: "wall", id: hit.id, start: p.world }, host);
       else if (hit.type === "opening")
         begin({ kind: "opening", id: hit.id }, host);
+      else if (hit.type === "dimension")
+        begin({ kind: "dimension", id: hit.id }, host);
       else if (hit.type === "item") {
         const item = plan.items.find((i) => i.id === hit.id)!;
         begin(
           { kind: "item", id: hit.id, grab: sub(p.world, item.position) },
+          host
+        );
+      } else if (hit.type === "label") {
+        const label = plan.labels.find((l) => l.id === hit.id)!;
+        begin(
+          { kind: "label", id: hit.id, grab: sub(p.world, label.position) },
           host
         );
       }
@@ -160,6 +173,22 @@ export function selectTool(): Tool {
           note = `${rotation}°`;
           return updateIn(base, "items", d.id, { rotation });
         });
+      } else if (d.kind === "dimension") {
+        host.store.set(previewAtom, (base) => {
+          const dim = base.dimensions.find((x) => x.id === d.id);
+          if (!dim) return base;
+          const normal = perp(normalize(sub(dim.b, dim.a)));
+          return updateIn(base, "dimensions", d.id, {
+            offset: roundTo(dot(sub(p.world, dim.a), normal), 50),
+          });
+        });
+      } else {
+        const at = sub(p.world, d.grab);
+        host.store.set(previewAtom, (base) =>
+          updateIn(base, "labels", d.id, {
+            position: { x: roundTo(at.x, 50), y: roundTo(at.y, 50) },
+          })
+        );
       }
     },
 

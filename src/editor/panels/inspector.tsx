@@ -3,7 +3,7 @@
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import { catalogueEntry, FINISHES } from "@/core/catalogue";
 import { removeFrom, setWallLength, tagRoom, updateIn } from "@/core/edit";
-import { polygonPerimeter } from "@/core/geometry";
+import { distance, polygonPerimeter } from "@/core/geometry";
 import { formatArea } from "@/core/rooms";
 import { wallLength } from "@/core/walls";
 import { Icon } from "../icons";
@@ -213,6 +213,54 @@ export default function Inspector() {
             </button>
           </div>
           {removeButton("item")}
+        </div>
+      );
+    }
+  }
+
+  // Dimension selected
+  if (selection?.type === "dimension") {
+    const d = plan.dimensions.find((x) => x.id === selection.id);
+    if (d) {
+      return (
+        <div className={panel.body}>
+          <h2 className={panel.title}>Dimension</h2>
+          <Fact
+            label="Measures"
+            value={`${Math.round(distance(d.a, d.b))} mm`}
+          />
+          <NumberField
+            label="Offset from line"
+            value={d.offset}
+            min={-10000}
+            max={10000}
+            onCommit={(v) =>
+              commit((p) => updateIn(p, "dimensions", d.id, { offset: v }))
+            }
+          />
+          {removeButton("dimension")}
+        </div>
+      );
+    }
+  }
+
+  // Note selected
+  if (selection?.type === "label") {
+    const label = plan.labels.find((l) => l.id === selection.id);
+    if (label) {
+      return (
+        <div className={panel.body}>
+          <h2 className={panel.title}>Note</h2>
+          <TextField
+            key={label.id}
+            label="Text"
+            value={label.text}
+            autoFocus={label.text === "Note"}
+            onChange={(text) =>
+              commit((p) => updateIn(p, "labels", label.id, { text }))
+            }
+          />
+          {removeButton("note")}
         </div>
       );
     }

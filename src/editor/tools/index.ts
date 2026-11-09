@@ -1,7 +1,9 @@
 import type { ToolId } from "../editor-atoms";
+import { dimensionTool } from "./dimension";
 import { itemTool } from "./item";
 import { openingTool } from "./opening";
 import { selectTool } from "./select";
+import { textTool } from "./text";
 import type { Tool } from "./types";
 import { wallTool } from "./wall";
 
@@ -18,6 +20,8 @@ export function createTools(): Record<ToolId, Tool> {
     wall: wallTool(),
     door: openingTool("door"),
     window: openingTool("window"),
+    dimension: dimensionTool(),
+    text: textTool(),
     item: itemTool(),
   };
 }

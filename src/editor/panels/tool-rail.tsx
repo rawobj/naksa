@@ -40,6 +40,20 @@ export const TOOLS: {
     key: "N",
     title: "Place a window on a wall",
   },
+  {
+    id: "dimension",
+    label: "Measure",
+    icon: "dimension",
+    key: "M",
+    title: "Add a dimension between two points",
+  },
+  {
+    id: "text",
+    label: "Note",
+    icon: "text",
+    key: "T",
+    title: "Write a note on the plan",
+  },
 ];
 
 // Left rail of drawing tools
