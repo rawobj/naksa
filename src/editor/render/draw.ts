@@ -609,3 +609,24 @@ function stations(values: number[]): number[] {
   }
   return out;
 }
+
+// Numbered doors and windows with their sizes, for the schedule
+export function openingSchedule(scene: Scene): {
+  tag: string;
+  kind: string;
+  width: number;
+  height: number;
+  sill: number;
+}[] {
+  let doors = 0;
+  let windows = 0;
+  return scene.plan.openings
+    .filter((o) => scene.plan.walls.some((w) => w.id === o.wallId))
+    .map((o) => ({
+      tag: o.kind === "door" ? `D${++doors}` : `W${++windows}`,
+      kind: o.kind === "door" ? "Door" : "Window",
+      width: o.width,
+      height: o.height,
+      sill: o.sill,
+    }));
+}

@@ -7,6 +7,7 @@ import { distance, polygonPerimeter } from "@/core/geometry";
 import { formatArea } from "@/core/rooms";
 import { wallLength } from "@/core/walls";
 import { Icon } from "../icons";
+import { openingSchedule } from "../render/draw";
 import { sceneFor } from "../render/scene";
 import {
   commitAtom,
@@ -14,6 +15,7 @@ import {
   planAtom,
   selectionAtom,
   toolAtom,
+  viewAtom,
   wallThicknessAtom,
   type EntityType,
 } from "../editor-atoms";
@@ -27,6 +29,7 @@ const rowButton =
 export default function Inspector() {
   const plan = useAtomValue(planAtom);
   const [selection, setSelection] = useAtom(selectionAtom);
+  const view = useAtomValue(viewAtom);
   const [wallThickness, setWallThickness] = useAtom(wallThicknessAtom);
   const setTool = useSetAtom(toolAtom);
   const commit = useSetAtom(commitAtom);
@@ -309,8 +312,9 @@ export default function Inspector() {
     }
   }
 
-  // Nothing selected: room list, total area and new wall thickness
+  // Nothing selected: room list, total area, new wall thickness and the door/window schedule
   const total = scene.rooms.reduce((sum, room) => sum + room.area, 0);
+  const schedule = view === "engineer" ? openingSchedule(scene) : [];
   return (
     <div className={panel.body}>
       <h2 className={panel.title}>Plan</h2>
@@ -363,6 +367,34 @@ export default function Inspector() {
           </button>
         ))}
       </div>
+
+      {schedule.length > 0 && (
+        <>
+          <h3 className={panel.heading}>Doors and windows</h3>
+          <table className="w-full border-collapse [&_td]:border-b [&_td]:border-line [&_td]:px-1 [&_td]:py-[7px] [&_td]:text-right [&_th]:border-b [&_th]:border-line [&_th]:px-1 [&_th]:py-[7px] [&_th]:text-right [&_th:first-child]:text-left">
+            <thead className="[&_th]:text-xs [&_th]:font-semibold [&_th]:text-muted">
+              <tr>
+                <th scope="col">Tag</th>
+                <th scope="col">Width</th>
+                <th scope="col">Height</th>
+                <th scope="col">Sill</th>
+              </tr>
+            </thead>
+            <tbody>
+              {schedule.map((row) => (
+                <tr key={row.tag}>
+                  <th scope="row" className="font-bold">
+                    {row.tag}
+                  </th>
+                  <td>{row.width}</td>
+                  <td>{row.height}</td>
+                  <td>{row.kind === "Window" ? row.sill : "–"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
     </div>
   );
 }
