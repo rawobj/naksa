@@ -26,6 +26,7 @@ import {
   snappingAtom,
   toolAtom,
   undoAtom,
+  viewAtom,
   viewportAtom,
   type EntityType,
 } from "./editor-atoms";
@@ -160,6 +161,10 @@ export default function Editor() {
         return store.set(redoAtom);
       }
       if (mod || e.altKey) return;
+
+      // Views
+      if (e.key === "1") return store.set(viewAtom, "plan");
+      if (e.key === "2") return store.set(viewAtom, "engineer");
 
       // The active tool gets the key first (the wall tool uses numbers for typed lengths)
       const active = tools[store.get(toolAtom)];

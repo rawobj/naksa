@@ -13,7 +13,7 @@ import {
 import { catalogueEntry, finishFor } from "@/core/catalogue";
 import type { Dimension, Item, Opening, Wall } from "@/core/model";
 import { formatArea } from "@/core/rooms";
-import { pointAlong, wallDirection } from "@/core/walls";
+import { pointAlong, wallDirection, wallLength } from "@/core/walls";
 import type { Viewport } from "../editor-atoms";
 import type { Scene } from "./scene";
 import { INK } from "./theme";
@@ -23,6 +23,7 @@ export type DrawOptions = {
   width: number; // canvas size in CSS pixels
   height: number;
   dpr: number;
+  mode: "plan" | "engineer";
   grid: boolean;
   fontFamily: string;
   weight?: number; // multiplier for text and line weights; exports use more than 1
@@ -48,12 +49,12 @@ export function drawPlan(ctx: Ctx, scene: Scene, o: DrawOptions): void {
   const px = k / o.viewport.zoom;
 
   world();
-  drawFloors(ctx, scene, o);
-  for (const item of scene.plan.items) drawItem(ctx, item, px);
-  drawWalls(ctx, scene, px);
+  if (o.mode === "plan") drawFloors(ctx, scene, o);
+  for (const item of scene.plan.items) drawItem(ctx, item, px, o.mode);
+  drawWalls(ctx, scene, px, o);
   for (const opening of scene.plan.openings) {
     const wall = scene.plan.walls.find((w) => w.id === opening.wallId);
-    if (wall) drawOpening(ctx, opening, wall, px);
+    if (wall) drawOpening(ctx, opening, wall, px, o.mode);
   }
 
   screen();
@@ -61,6 +62,7 @@ export function drawPlan(ctx: Ctx, scene: Scene, o: DrawOptions): void {
   for (const d of scene.plan.dimensions)
     drawDimension(ctx, d, o, text, INK.soft);
   drawRoomLabels(scene, o, text);
+  if (o.mode === "engineer") drawEngineering(ctx, scene, o, text);
   for (const label of scene.plan.labels) {
     const p = toScreenPoint(o.viewport, label.position);
     text(label.text, p.x, p.y, { size: 13, weight: 600, color: INK.line });
@@ -205,16 +207,47 @@ function drawFloors(ctx: Ctx, scene: Scene, o: DrawOptions): void {
   }
 }
 
-function drawWalls(ctx: Ctx, scene: Scene, px: number): void {
+function drawWalls(ctx: Ctx, scene: Scene, px: number, o: DrawOptions): void {
   if (scene.solids.length === 0) return;
-  ctx.beginPath();
-  for (const solid of scene.solids) trace(ctx, solid);
-  ctx.fillStyle = INK.wall;
-  ctx.strokeStyle = INK.wall;
-  ctx.lineWidth = px * 0.75;
+  const union = () => {
+    ctx.beginPath();
+    for (const solid of scene.solids) trace(ctx, solid);
+  };
+  if (o.mode === "plan") {
+    union();
+    ctx.fillStyle = INK.wall;
+    ctx.strokeStyle = INK.wall;
+    ctx.lineWidth = px * 0.75;
+    ctx.lineJoin = "miter";
+    ctx.fill();
+    ctx.stroke();
+    return;
+  }
+  // Engineer view: outlined walls with a section hatch.
+  // Stroke first then fill, so the fill covers the inner strokes where walls overlap
+  // and only one outline is left around the whole wall shape.
+  union();
+  ctx.strokeStyle = INK.line;
+  ctx.lineWidth = px * 2.6;
   ctx.lineJoin = "miter";
-  ctx.fill();
   ctx.stroke();
+  ctx.fillStyle = INK.paper;
+  ctx.fill();
+  if (!scene.bounds) return;
+  ctx.save();
+  ctx.clip();
+  const b = scene.bounds;
+  const gap = px * 7;
+  const span = b.maxY - b.minY + b.maxX - b.minX;
+  ctx.beginPath();
+  for (let t = b.minX - (b.maxY - b.minY); t < b.maxX; t += gap) {
+    ctx.moveTo(t, b.maxY);
+    ctx.lineTo(t + span, b.maxY - span);
+  }
+  ctx.strokeStyle = INK.soft;
+  ctx.lineWidth = px * 0.7;
+  ctx.stroke();
+  ctx.restore();
 }
 
 // Geometry of an opening: its jambs on the centreline and the wall's axes
@@ -227,7 +260,13 @@ export function openingFrame(opening: Opening, wall: Wall) {
   return { dir, normal, centre, start, end };
 }
 
-function drawOpening(ctx: Ctx, opening: Opening, wall: Wall, px: number): void {
+function drawOpening(
+  ctx: Ctx,
+  opening: Opening,
+  wall: Wall,
+  px: number,
+  mode: DrawOptions["mode"]
+): void {
   const { normal, start, end } = openingFrame(opening, wall);
   const half = wall.thickness / 2;
   const corner = (p: Vec, side: number) => add(p, scale(normal, side * half));
@@ -242,7 +281,7 @@ function drawOpening(ctx: Ctx, opening: Opening, wall: Wall, px: number): void {
       corner(end, -1),
       corner(start, -1),
     ]);
-    ctx.fillStyle = INK.glass;
+    ctx.fillStyle = mode === "plan" ? INK.glass : INK.paper;
     ctx.fill();
     ctx.strokeStyle = INK.line;
     ctx.lineWidth = px * 1.1;
@@ -275,7 +314,7 @@ function drawOpening(ctx: Ctx, opening: Opening, wall: Wall, px: number): void {
   ctx.moveTo(hinge.x, hinge.y);
   ctx.lineTo(tip.x, tip.y);
   ctx.strokeStyle = INK.line;
-  ctx.lineWidth = px * 2;
+  ctx.lineWidth = px * (mode === "plan" ? 2 : 1.4);
   ctx.stroke();
 
   const a0 = angleOf(sub(tip, hinge));
@@ -337,13 +376,18 @@ export function drawSymbol(
   }
 }
 
-function drawItem(ctx: Ctx, item: Item, px: number): void {
+function drawItem(
+  ctx: Ctx,
+  item: Item,
+  px: number,
+  mode: DrawOptions["mode"]
+): void {
   ctx.save();
   ctx.translate(item.position.x, item.position.y);
   ctx.rotate((item.rotation * Math.PI) / 180);
-  ctx.fillStyle = INK.furniture;
-  ctx.strokeStyle = INK.furnitureLine;
-  ctx.lineWidth = px * 1.1;
+  ctx.fillStyle = mode === "plan" ? INK.furniture : "rgba(0,0,0,0)";
+  ctx.strokeStyle = mode === "plan" ? INK.furnitureLine : INK.faint;
+  ctx.lineWidth = px * (mode === "plan" ? 1.1 : 0.9);
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
   drawSymbol(ctx, item.kind, item.width, item.depth);
@@ -424,15 +468,144 @@ function drawRoomLabels(scene: Scene, o: DrawOptions, text: TextFn): void {
     const p = toScreenPoint(o.viewport, room.centroid);
     const box = boundsOf(room.inner)!;
     const w = box.maxX - box.minX;
+    const h = box.maxY - box.minY;
     // Skip labels that would not fit in the room at this zoom
     if (w * o.viewport.zoom < 46 * (o.weight ?? 1)) continue;
-    text(room.name, p.x, p.y - 8 * (o.weight ?? 1), {
+    const engineer = o.mode === "engineer";
+    text(room.name, p.x, p.y - (engineer ? 15 : 8) * (o.weight ?? 1), {
       size: 13,
       weight: 700,
     });
-    text(formatArea(room.area), p.x, p.y + 8 * (o.weight ?? 1), {
-      size: 11,
-      color: INK.soft,
-    });
+    text(
+      formatArea(room.area),
+      p.x,
+      p.y + (engineer ? 1 : 8) * (o.weight ?? 1),
+      { size: 11, color: INK.soft }
+    );
+    if (engineer) {
+      text(
+        `${formatLength(w)} × ${formatLength(h)}`,
+        p.x,
+        p.y + 16 * (o.weight ?? 1),
+        { size: 11, color: INK.soft }
+      );
+    }
   }
+}
+
+// Space the engineer view's own dimensions need around the walls, in millimetres
+export const ENGINEER_MARGIN = 1900;
+
+// What the engineer view adds: overall and running dimensions along the top and left
+// of the building, and a numbered tag on every door and window.
+function drawEngineering(
+  ctx: Ctx,
+  scene: Scene,
+  o: DrawOptions,
+  text: TextFn
+): void {
+  const { walls, openings } = scene.plan;
+  if (walls.length === 0 || !scene.bounds) return;
+  const k = o.weight ?? 1;
+  const top = scene.bounds.minY;
+  const left = scene.bounds.minX;
+  // Running dimensions are taken between the walls that reach each outside face
+  const reach = 400;
+  const xs = stations(
+    walls
+      .flatMap((w) => [w.a, w.b])
+      .filter((p) => p.y - top < reach)
+      .map((p) => p.x)
+  );
+  const ys = stations(
+    walls
+      .flatMap((w) => [w.a, w.b])
+      .filter((p) => p.x - left < reach)
+      .map((p) => p.y)
+  );
+  const topLine = Math.min(...walls.flatMap((w) => [w.a.y, w.b.y]));
+  const leftLine = Math.min(...walls.flatMap((w) => [w.a.x, w.b.x]));
+  const first = 650;
+  const second = 1300;
+
+  const chain = (
+    values: number[],
+    make: (from: number, to: number, offset: number) => Dimension
+  ) => {
+    if (values.length < 2) return;
+    if (values.length > 2) {
+      for (let i = 0; i < values.length - 1; i++) {
+        drawDimension(
+          ctx,
+          make(values[i]!, values[i + 1]!, first),
+          o,
+          text,
+          INK.line
+        );
+      }
+    }
+    drawDimension(
+      ctx,
+      make(
+        values[0]!,
+        values[values.length - 1]!,
+        values.length > 2 ? second : first
+      ),
+      o,
+      text,
+      INK.line
+    );
+  };
+  chain(xs, (from, to, offset) => ({
+    id: "",
+    a: { x: from, y: topLine },
+    b: { x: to, y: topLine },
+    offset,
+  }));
+  chain(ys, (from, to, offset) => ({
+    id: "",
+    a: { x: leftLine, y: to },
+    b: { x: leftLine, y: from },
+    offset,
+  }));
+
+  let doors = 0;
+  let windows = 0;
+  for (const opening of openings) {
+    const wall = walls.find((w) => w.id === opening.wallId);
+    if (!wall || wallLength(wall) < 1) continue;
+    const tag = opening.kind === "door" ? `D${++doors}` : `W${++windows}`;
+    const { normal, centre } = openingFrame(opening, wall);
+    // Tags sit on the side away from a door's swing so the two never collide
+    const side =
+      opening.kind === "door" ? (opening.swing === "left" ? -1 : 1) : 1;
+    const at = toScreenPoint(
+      o.viewport,
+      add(centre, scale(normal, side * (wall.thickness / 2)))
+    );
+    const push = 13 * k;
+    const x = at.x + normal.x * side * push;
+    const y = at.y + normal.y * side * push;
+    ctx.font = `700 ${9.5 * k}px ${o.fontFamily}`;
+    const w = Math.max(19 * k, ctx.measureText(tag).width + 9 * k);
+    ctx.beginPath();
+    ctx.roundRect(x - w / 2, y - 9.5 * k, w, 19 * k, 9.5 * k);
+    ctx.fillStyle = INK.paper;
+    ctx.fill();
+    ctx.strokeStyle = INK.line;
+    ctx.lineWidth = k;
+    ctx.stroke();
+    text(tag, x, y + 0.5 * k, { size: 9.5, weight: 700, halo: false });
+  }
+}
+
+// Sorted distinct coordinates, merging any closer than 5 mm
+function stations(values: number[]): number[] {
+  const sorted = [...values].sort((a, b) => a - b);
+  const out: number[] = [];
+  for (const v of sorted) {
+    const last = out[out.length - 1];
+    if (last === undefined || v - last > 5) out.push(v);
+  }
+  return out;
 }

@@ -3,6 +3,7 @@ import { emptyPlan, type Id, type Plan } from "@/core/model";
 
 export type ToolId =
   "select" | "pan" | "wall" | "door" | "window" | "dimension" | "text" | "item";
+export type ViewMode = "plan" | "engineer";
 export type EntityType =
   "wall" | "opening" | "item" | "dimension" | "label" | "room";
 
@@ -43,6 +44,8 @@ export const pendingItemAtom = atom<string | null>(null);
 export const wallThicknessAtom = atom(230); // thickness given to newly drawn walls
 
 export const selectionAtom = atom<Selection | null>(null);
+
+export const viewAtom = atom<ViewMode>("plan");
 
 export const viewportAtom = atom<Viewport>({ x: 0, y: 0, zoom: 0.05 });
 

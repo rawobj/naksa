@@ -12,7 +12,7 @@ import {
   wallBox,
 } from "./hit";
 import { outline } from "./overlay";
-import { drawPlan, type DrawOptions } from "./render/draw";
+import { drawPlan, ENGINEER_MARGIN, type DrawOptions } from "./render/draw";
 import { sceneFor } from "./render/scene";
 import { INK } from "./render/theme";
 import {
@@ -25,6 +25,7 @@ import {
   selectionAtom,
   snappingAtom,
   toolAtom,
+  viewAtom,
   viewportAtom,
   wallThicknessAtom,
   type Selection,
@@ -66,6 +67,7 @@ export default function PlanCanvas({ tools, host }: PlanCanvasProps) {
         width,
         height,
         dpr: window.devicePixelRatio || 1,
+        mode: store.get(viewAtom) === "engineer" ? "engineer" : "plan",
         grid: true,
         fontFamily,
       };
@@ -143,7 +145,7 @@ export default function PlanCanvas({ tools, host }: PlanCanvasProps) {
       if (!frame) frame = requestAnimationFrame(draw);
     };
 
-    // Zoom to fit the plan
+    // Zoom to fit the plan, the engineer view needs more room on the top and left for its dimensions
     const fit = () => {
       const bounds = sceneFor(store.get(planAtom)).bounds;
       if (!bounds || width === 0) {
@@ -154,12 +156,13 @@ export default function PlanCanvas({ tools, host }: PlanCanvasProps) {
         });
         return;
       }
+      const pad = store.get(viewAtom) === "engineer" ? ENGINEER_MARGIN : 600;
       store.set(
         viewportAtom,
         fitBounds(
           {
-            minX: bounds.minX - 600,
-            minY: bounds.minY - 600,
+            minX: bounds.minX - pad,
+            minY: bounds.minY - pad,
             maxX: bounds.maxX + 600,
             maxY: bounds.maxY + 600,
           },
@@ -187,7 +190,7 @@ export default function PlanCanvas({ tools, host }: PlanCanvasProps) {
     const observer = new ResizeObserver(resize);
     observer.observe(canvas);
 
-    // Redraw when anything that is drawn changes, and refit when asked to
+    // Redraw when anything that is drawn changes, and refit when asked to or when the view changes
     const unsubscribe = [
       ...[
         planAtom,
@@ -201,6 +204,7 @@ export default function PlanCanvas({ tools, host }: PlanCanvasProps) {
         redrawAtom,
       ].map((watched) => store.sub(watched, schedule)),
       store.sub(fitRequestAtom, fit),
+      store.sub(viewAtom, fit),
     ];
 
     const pointer = (e: PointerEvent | MouseEvent | DragEvent): Pointer => {

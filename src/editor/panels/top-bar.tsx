@@ -1,8 +1,8 @@
 "use client";
 
 import { produce } from "immer";
-import { useAtomValue, useSetAtom } from "jotai";
-import { Icon } from "../icons";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { Icon, type IconName } from "../icons";
 import {
   canRedoAtom,
   canUndoAtom,
@@ -10,7 +10,25 @@ import {
   planNameAtom,
   redoAtom,
   undoAtom,
+  viewAtom,
+  type ViewMode,
 } from "../editor-atoms";
+
+const VIEWS: { id: ViewMode; label: string; icon: IconName; title: string }[] =
+  [
+    {
+      id: "plan",
+      label: "Plan",
+      icon: "plan",
+      title: "Furnished plan with floor finishes (1)",
+    },
+    {
+      id: "engineer",
+      label: "Engineer",
+      icon: "ruler",
+      title: "Dimensions, wall sections and door and window tags (2)",
+    },
+  ];
 
 type TopBarProps = {
   onNew(): void;
@@ -26,9 +44,10 @@ const iconButton =
 const action =
   "flex h-9 items-center gap-[7px] rounded-small px-[11px] font-semibold whitespace-nowrap text-on-navy transition-[background] duration-150 ease-naksa hover:bg-navy-raised max-[1280px]:w-9 max-[1280px]:justify-center max-[1280px]:px-0 [&>span]:max-[1280px]:hidden";
 
-// Top bar: plan name, undo and redo and file actions
+// Top bar: plan name, undo and redo, view switcher and file actions
 export default function TopBar({ onNew, onOpen, onSave }: TopBarProps) {
   const name = useAtomValue(planNameAtom);
+  const [view, setView] = useAtom(viewAtom);
   const canUndo = useAtomValue(canUndoAtom);
   const canRedo = useAtomValue(canRedoAtom);
   const commit = useSetAtom(commitAtom);
@@ -79,7 +98,27 @@ export default function TopBar({ onNew, onOpen, onSave }: TopBarProps) {
         </button>
       </div>
 
-      <div className="ml-auto flex items-center gap-0.5">
+      {/* View switcher */}
+      <div
+        className="ml-auto flex rounded-big bg-navy-deep p-[3px]"
+        role="group"
+        aria-label="View"
+      >
+        {VIEWS.map((v) => (
+          <button
+            key={v.id}
+            className="flex h-8 items-center gap-[7px] rounded-small px-3.5 font-semibold text-on-navy-muted transition-[background,color] duration-180 ease-naksa hover:text-on-navy aria-pressed:bg-brass aria-pressed:text-on-brass max-[860px]:px-2.5"
+            aria-pressed={view === v.id}
+            title={v.title}
+            onClick={() => setView(v.id)}
+          >
+            <Icon name={v.icon} size={17} />
+            <span className="max-[860px]:hidden">{v.label}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="flex items-center gap-0.5">
         <button className={action} onClick={onNew} title="Start a blank plan">
           <Icon name="file" size={18} />
           <span>New</span>
