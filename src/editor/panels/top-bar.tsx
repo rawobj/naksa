@@ -34,6 +34,7 @@ type TopBarProps = {
   onNew(): void;
   onOpen(): void;
   onSave(): void;
+  onExport(): void;
 };
 
 // Undo and redo
@@ -45,7 +46,12 @@ const action =
   "flex h-9 items-center gap-[7px] rounded-small px-[11px] font-semibold whitespace-nowrap text-on-navy transition-[background] duration-150 ease-naksa hover:bg-navy-raised max-[1280px]:w-9 max-[1280px]:justify-center max-[1280px]:px-0 [&>span]:max-[1280px]:hidden";
 
 // Top bar: plan name, undo and redo, view switcher and file actions
-export default function TopBar({ onNew, onOpen, onSave }: TopBarProps) {
+export default function TopBar({
+  onNew,
+  onOpen,
+  onSave,
+  onExport,
+}: TopBarProps) {
   const name = useAtomValue(planNameAtom);
   const [view, setView] = useAtom(viewAtom);
   const canUndo = useAtomValue(canUndoAtom);
@@ -138,6 +144,14 @@ export default function TopBar({ onNew, onOpen, onSave }: TopBarProps) {
         >
           <Icon name="save" size={18} />
           <span>Save</span>
+        </button>
+        <button
+          className="ml-2 flex h-9 items-center gap-[7px] rounded-small bg-brass px-[15px] font-semibold whitespace-nowrap text-on-brass transition-[background] duration-150 ease-naksa hover:bg-brass-bright max-[860px]:ml-0.5 max-[860px]:px-2.5 [&>span]:max-[860px]:hidden"
+          onClick={onExport}
+          title="Download this view as a PNG image"
+        >
+          <Icon name="image" size={18} />
+          <span>Export PNG</span>
         </button>
       </div>
     </header>

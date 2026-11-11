@@ -5,7 +5,15 @@ import { useStore } from "jotai";
 import { removeFrom, updateIn } from "@/core/edit";
 import { emptyPlan, type Plan } from "@/core/model";
 import { PlanFileError } from "@/core/serialize";
-import { downloadPlan, loadSaved, pickPlanFile, saveLocal } from "./files";
+import { canvasToBlob, renderPlanImage } from "./export-png";
+import {
+  download,
+  downloadPlan,
+  fileName,
+  loadSaved,
+  pickPlanFile,
+  saveLocal,
+} from "./files";
 import SidePanel from "./panels/side-panel";
 import StatusBar from "./panels/status-bar";
 import Toolbox from "./panels/toolbox";
@@ -132,6 +140,27 @@ export default function Editor() {
   const save = useCallback(() => {
     downloadPlan(store.get(planAtom));
     say("Plan file saved to your downloads.");
+  }, [store, say]);
+
+  const exportPng = useCallback(async () => {
+    const plan = store.get(planAtom);
+    const current = store.get(viewAtom);
+    // The view is drawn again on a separate canvas at print size
+    const mode = current === "engineer" ? "engineer" : "plan";
+    const canvas = renderPlanImage(
+      plan,
+      mode,
+      getComputedStyle(document.body).fontFamily
+    );
+    if (!canvas)
+      return say("There is nothing to export yet. Draw a wall first.");
+    const blob = await canvasToBlob(canvas);
+    if (!blob) return say("The image could not be created. Try again.");
+    download(
+      blob,
+      fileName(plan, mode === "engineer" ? "engineer.png" : "png")
+    );
+    say("Image saved to your downloads.");
   }, [store, say]);
 
   // Keyboard shortcuts
@@ -270,6 +299,7 @@ export default function Editor() {
         onNew={() => replacePlan(emptyPlan())}
         onOpen={open}
         onSave={save}
+        onExport={exportPng}
       />
       <ToolRail />
       <Toolbox />
