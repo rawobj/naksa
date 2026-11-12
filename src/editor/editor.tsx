@@ -14,6 +14,7 @@ import {
   pickPlanFile,
   saveLocal,
 } from "./files";
+import GenerateDialog from "./panels/generate-dialog";
 import SidePanel from "./panels/side-panel";
 import StatusBar from "./panels/status-bar";
 import Toolbox from "./panels/toolbox";
@@ -60,6 +61,7 @@ export default function Editor() {
   const store = useStore();
   const tools = useMemo(() => createTools(), []);
   const stageRef = useRef<HTMLDivElement>(null);
+  const [generating, setGenerating] = useState(false);
   const [notice, setNotice] = useState("");
 
   // What the tools can use from the canvas (snapping at the current zoom, px to mm)
@@ -297,6 +299,7 @@ export default function Editor() {
     <div className={layout}>
       <TopBar
         onNew={() => replacePlan(emptyPlan())}
+        onGenerate={() => setGenerating(true)}
         onOpen={open}
         onSave={save}
         onExport={exportPng}
@@ -316,6 +319,15 @@ export default function Editor() {
       </main>
 
       <SidePanel />
+
+      <GenerateDialog
+        open={generating}
+        onClose={() => setGenerating(false)}
+        onUse={(plan) => {
+          replacePlan(plan);
+          setGenerating(false);
+        }}
+      />
 
       {/* Toast message */}
       <div

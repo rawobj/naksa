@@ -32,6 +32,7 @@ const VIEWS: { id: ViewMode; label: string; icon: IconName; title: string }[] =
 
 type TopBarProps = {
   onNew(): void;
+  onGenerate(): void;
   onOpen(): void;
   onSave(): void;
   onExport(): void;
@@ -48,6 +49,7 @@ const action =
 // Top bar: plan name, undo and redo, view switcher and file actions
 export default function TopBar({
   onNew,
+  onGenerate,
   onOpen,
   onSave,
   onExport,
@@ -128,6 +130,14 @@ export default function TopBar({
         <button className={action} onClick={onNew} title="Start a blank plan">
           <Icon name="file" size={18} />
           <span>New</span>
+        </button>
+        <button
+          className={action}
+          onClick={onGenerate}
+          title="Lay out a home from a short brief"
+        >
+          <Icon name="generate" size={18} />
+          <span>Generate</span>
         </button>
         <button
           className={action}
