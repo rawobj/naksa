@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useStore } from "jotai";
+import { useAtomValue, useStore } from "jotai";
 import { removeFrom, updateIn } from "@/core/edit";
 import { emptyPlan, type Plan } from "@/core/model";
 import { PlanFileError } from "@/core/serialize";
@@ -25,6 +25,7 @@ import { snapPoint } from "./snap";
 import {
   commitAtom,
   fitRequestAtom,
+  isBlankAtom,
   LISTS,
   loadAtom,
   pendingItemAtom,
@@ -41,6 +42,7 @@ import {
 } from "./editor-atoms";
 import { createTools, type ToolHost } from "./tools";
 import { zoomAt } from "./viewport";
+import Welcome from "./welcome";
 import { cn } from "@/lib/utils";
 
 // Grid layout. Below 960px the side panel moves under the drawing,
@@ -63,6 +65,9 @@ export default function Editor() {
   const stageRef = useRef<HTMLDivElement>(null);
   const [generating, setGenerating] = useState(false);
   const [notice, setNotice] = useState("");
+  const [ready, setReady] = useState(false);
+  const tool = useAtomValue(toolAtom);
+  const blank = useAtomValue(isBlankAtom);
 
   // What the tools can use from the canvas (snapping at the current zoom, px to mm)
   const host = useMemo<ToolHost>(
@@ -109,6 +114,10 @@ export default function Editor() {
       store.set(loadAtom, saved);
       store.set(fitRequestAtom, (n) => n + 1);
     }
+    // Reason for setting this in an effect is that localStorage only exists in the browser,
+    // so the welcome screen has to wait until the saved plan (if any) is loaded.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setReady(true);
 
     // Save 400ms after the last change, not on every single edit
     let timer = 0;
@@ -314,6 +323,14 @@ export default function Editor() {
       >
         <div className="relative flex min-h-0 flex-1">
           <PlanCanvas tools={tools} host={host} />
+          {/* Welcome screen over an empty plan */}
+          {ready && blank && tool === "select" && (
+            <Welcome
+              onDraw={() => store.set(toolAtom, "wall")}
+              onPreset={replacePlan}
+              onGenerate={() => setGenerating(true)}
+            />
+          )}
         </div>
         <StatusBar tools={tools} centre={centre} />
       </main>

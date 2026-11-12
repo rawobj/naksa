@@ -62,6 +62,10 @@ export const redrawAtom = atom(0);
 // Derived values, components using these only re-render when the value itself changes
 export const planNameAtom = atom((get) => get(planAtom).name);
 export const zoomAtom = atom((get) => get(viewportAtom).zoom);
+export const isBlankAtom = atom((get) => {
+  const plan = get(planAtom);
+  return plan.walls.length === 0 && plan.items.length === 0;
+});
 export const armedItemAtom = atom((get) =>
   get(toolAtom) === "item" ? get(pendingItemAtom) : null
 );
