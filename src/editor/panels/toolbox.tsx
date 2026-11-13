@@ -6,6 +6,7 @@ import { ItemIcon } from "../icons";
 import { ITEM_MIME } from "../plan-canvas";
 import {
   armedItemAtom,
+  is3dAtom,
   pendingItemAtom,
   selectionAtom,
   toolAtom,
@@ -15,6 +16,7 @@ import {
 export default function Toolbox() {
   const store = useStore();
   const pending = useAtomValue(armedItemAtom);
+  const disabled = useAtomValue(is3dAtom);
 
   // Clicking the armed piece again puts it back down
   const pick = (kind: string) => {
@@ -51,9 +53,10 @@ export default function Toolbox() {
                 (entry) => (
                   <button
                     key={entry.kind}
-                    className="flex min-h-[76px] cursor-grab flex-col items-center justify-start gap-[5px] rounded-big bg-tile px-[3px] pt-[9px] pb-[7px] text-center text-[10.5px] leading-[1.2] font-semibold text-navy transition-[background,color,transform] duration-180 ease-naksa hover:bg-tile-hover active:scale-96 active:cursor-grabbing aria-pressed:bg-brass aria-pressed:text-on-brass"
+                    className="flex min-h-[76px] cursor-grab flex-col items-center justify-start gap-[5px] rounded-big bg-tile px-[3px] pt-[9px] pb-[7px] text-center text-[10.5px] leading-[1.2] font-semibold text-navy transition-[background,color,transform] duration-180 ease-naksa hover:bg-tile-hover active:scale-96 active:cursor-grabbing disabled:cursor-not-allowed disabled:text-[#9a9fa9] disabled:hover:bg-tile disabled:active:scale-100 aria-pressed:bg-brass aria-pressed:text-on-brass"
                     aria-pressed={pending === entry.kind}
-                    draggable
+                    disabled={disabled}
+                    draggable={!disabled}
                     title={`${entry.label}, ${entry.width} × ${entry.depth} mm`}
                     onDragStart={(e) => {
                       e.dataTransfer.setData(ITEM_MIME, entry.kind);

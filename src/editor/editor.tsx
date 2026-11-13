@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAtomValue, useStore } from "jotai";
 import { removeFrom, updateIn } from "@/core/edit";
@@ -45,6 +46,12 @@ import { zoomAt } from "./viewport";
 import Welcome from "./welcome";
 import { cn } from "@/lib/utils";
 
+// Three.js is big and needs WebGL, so only load it in the browser when the 3D view is opened
+const Viewer3D = dynamic(() => import("@/three/viewer-3d"), {
+  ssr: false,
+  loading: () => <p className="m-auto text-muted">Loading the 3D view…</p>,
+});
+
 // Grid layout. Below 960px the side panel moves under the drawing,
 // on a phone the tools run across the top and the furniture list is dropped.
 const layout = cn(
@@ -66,6 +73,7 @@ export default function Editor() {
   const [generating, setGenerating] = useState(false);
   const [notice, setNotice] = useState("");
   const [ready, setReady] = useState(false);
+  const view = useAtomValue(viewAtom);
   const tool = useAtomValue(toolAtom);
   const blank = useAtomValue(isBlankAtom);
 
@@ -156,7 +164,21 @@ export default function Editor() {
   const exportPng = useCallback(async () => {
     const plan = store.get(planAtom);
     const current = store.get(viewAtom);
-    // The view is drawn again on a separate canvas at print size
+    // 3D view: just save what the WebGL canvas is showing
+    if (current === "3d") {
+      const canvas = stageRef.current?.querySelector("canvas");
+      if (!canvas) return;
+      // WebGL clears its buffer after showing a frame, so grab it inside the next frame
+      requestAnimationFrame(() =>
+        canvas.toBlob(
+          (blob) => blob && download(blob, fileName(plan, "3d.png")),
+          "image/png"
+        )
+      );
+      say("3D image saved to your downloads.");
+      return;
+    }
+    // Plan views are drawn again on a separate canvas at print size
     const mode = current === "engineer" ? "engineer" : "plan";
     const canvas = renderPlanImage(
       plan,
@@ -205,6 +227,8 @@ export default function Editor() {
       // Views
       if (e.key === "1") return store.set(viewAtom, "plan");
       if (e.key === "2") return store.set(viewAtom, "engineer");
+      if (e.key === "3") return store.set(viewAtom, "3d");
+      if (store.get(viewAtom) === "3d") return;
 
       // The active tool gets the key first (the wall tool uses numbers for typed lengths)
       const active = tools[store.get(toolAtom)];
@@ -316,15 +340,19 @@ export default function Editor() {
       <ToolRail />
       <Toolbox />
 
-      {/* Canvas in the middle */}
+      {/* Canvas (or 3D view) in the middle */}
       <main
         className="flex min-h-0 min-w-0 flex-col [grid-area:stage]"
         ref={stageRef}
       >
         <div className="relative flex min-h-0 flex-1">
-          <PlanCanvas tools={tools} host={host} />
+          {view === "3d" ? (
+            <Viewer3D />
+          ) : (
+            <PlanCanvas tools={tools} host={host} />
+          )}
           {/* Welcome screen over an empty plan */}
-          {ready && blank && tool === "select" && (
+          {ready && blank && view !== "3d" && tool === "select" && (
             <Welcome
               onDraw={() => store.set(toolAtom, "wall")}
               onPreset={replacePlan}
@@ -332,7 +360,7 @@ export default function Editor() {
             />
           )}
         </div>
-        <StatusBar tools={tools} centre={centre} />
+        {view !== "3d" && <StatusBar tools={tools} centre={centre} />}
       </main>
 
       <SidePanel />

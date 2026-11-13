@@ -2,7 +2,12 @@
 
 import { useAtomValue, useSetAtom } from "jotai";
 import { Icon, type IconName } from "../icons";
-import { pendingItemAtom, toolAtom, type ToolId } from "../editor-atoms";
+import {
+  is3dAtom,
+  pendingItemAtom,
+  toolAtom,
+  type ToolId,
+} from "../editor-atoms";
 
 export const TOOLS: {
   id: ToolId;
@@ -56,11 +61,12 @@ export const TOOLS: {
   },
 ];
 
-// Left rail of drawing tools
+// Left rail of drawing tools, all disabled in the 3D view
 export default function ToolRail() {
   const tool = useAtomValue(toolAtom);
   const setTool = useSetAtom(toolAtom);
   const setPendingItem = useSetAtom(pendingItemAtom);
+  const disabled = useAtomValue(is3dAtom);
 
   return (
     <nav
@@ -72,6 +78,7 @@ export default function ToolRail() {
           key={t.id}
           className="flex min-h-14 w-[62px] flex-col items-center justify-center gap-1 rounded-big px-0.5 pt-[7px] pb-1.5 text-[10.5px] leading-[1.1] font-semibold text-on-navy-muted transition-[background,color] duration-180 ease-naksa focus-visible:outline-brass-bright enabled:hover:bg-navy-raised enabled:hover:text-on-navy enabled:aria-pressed:bg-brass enabled:aria-pressed:text-on-brass disabled:text-[#6f7b94] max-[720px]:min-h-[50px] max-[720px]:flex-none"
           aria-pressed={tool === t.id}
+          disabled={disabled}
           title={`${t.title} (${t.key})`}
           onClick={() => {
             setTool(t.id);

@@ -28,6 +28,12 @@ const VIEWS: { id: ViewMode; label: string; icon: IconName; title: string }[] =
       icon: "ruler",
       title: "Dimensions, wall sections and door and window tags (2)",
     },
+    {
+      id: "3d",
+      label: "3D",
+      icon: "cube",
+      title: "Walk around the home in 3D (3)",
+    },
   ];
 
 type TopBarProps = {
